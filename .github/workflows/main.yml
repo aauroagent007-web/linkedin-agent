@@ -31,5 +31,6 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
           LINKEDIN_PERSON_ID: ${{ secrets.LINKEDIN_PERSON_ID }}
+          HF_API_KEY: ${{ secrets.HF_API_KEY }}
           TOPIC: "Agentic AI cybersecurity and autonomous threat detection"
           RUN_MODE: ${{ github.event.inputs.mode || 'post' }}
