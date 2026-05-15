@@ -120,21 +120,15 @@ def upload_image_to_linkedin(image_data):
 def job_post():
     print(f"[{datetime.now()}] Generating LinkedIn post about: {TOPIC}")
 
-    # Generate post text
     content = ai_generate_post(TOPIC)
     print(f"Generated content: {content[:100]}...")
 
-    # Generate matching image prompt from post content
     image_prompt = ai_generate_image_prompt(content)
     print(f"Image prompt: {image_prompt}")
 
-    # Generate matching image
     image_data = generate_image_hf(image_prompt)
-
-    # Upload image to LinkedIn
     asset = upload_image_to_linkedin(image_data)
 
-    # Post with image
     payload = {
         "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
         "lifecycleState": "PUBLISHED",
@@ -170,7 +164,7 @@ def job_post():
     )
     r.raise_for_status()
     post_id = r.json().get("id")
-    print(f"[{datetime.now()}] LinkedIn post with matching image published! ID: {post_id}")
+    print(f"[{datetime.now()}] LinkedIn post with image published! ID: {post_id}")
 
 if __name__ == "__main__":
     if RUN_MODE == "post":
