@@ -1,0 +1,35 @@
+name: LinkedIn Auto Post
+
+on:
+  schedule:
+    - cron: '30 7 * * *'   # 1:00 PM IST daily
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: true
+        default: 'post'
+        type: choice
+        options:
+          - post
+
+jobs:
+  run-linkedin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - run: pip install -r requirements.txt
+
+      - name: Run LinkedIn Agent
+        run: python linkedin.py
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_PERSON_ID: ${{ secrets.LINKEDIN_PERSON_ID }}
+          TOPIC: "Agentic AI cybersecurity and autonomous threat detection"
+          RUN_MODE: ${{ github.event.inputs.mode || 'post' }}
