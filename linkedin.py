@@ -59,22 +59,35 @@ def generate_image_hf(image_prompt):
     print(f"[{datetime.now()}] Generating image with Hugging Face...")
     print(f"Image prompt: {image_prompt}")
 
-    API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+    models = [
+        "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell",
+        "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1",
+        "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
+    ]
+
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+    payload = {"inputs": image_prompt}
 
-    payload = {
-        "inputs": image_prompt,
-        "parameters": {
-            "width": 1024,
-            "height": 1024,
-            "num_inference_steps": 30
-        }
-    }
+    for model_url in models:
+        try:
+            print(f"Trying model: {model_url}")
+            response = requests.post(
+                model_url,
+                headers=headers,
+                json=payload,
+                timeout=60
+            )
+            if response.status_code == 200:
+                print(f"Image generated successfully!")
+                return response.content
+            else:
+                print(f"Model failed with {response.status_code}, trying next...")
+        except Exception as e:
+            print(f"Model error: {e}, trying next...")
 
-    response = requests.post(API_URL, headers=headers, json=payload)
-    response.raise_for_status()
-    print(f"Image generated successfully!")
-    return response.content
+    print("All HF models failed, using fallback image...")
+    image_url = "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1024"
+    return requests.get(image_url).content
 
 def upload_image_to_linkedin(image_data):
     print(f"[{datetime.now()}] Uploading image to LinkedIn...")
