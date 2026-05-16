@@ -63,9 +63,8 @@ def generate_video(post_content):
     text_lines = ai_generate_video_text(post_content)
     print(f"Video text lines: {text_lines}")
 
-    # Build video with 3 slides
-    scenes = []
     colors = ["#0a192f", "#112240", "#1d3a6e"]
+    scenes = []
 
     for i, line in enumerate(text_lines):
         scenes.append({
@@ -74,78 +73,37 @@ def generate_video(post_content):
             "elements": [
                 {
                     "type": "html",
-                    "html": f"""
-                    <div style='
-                        width:100%; height:100%;
-                        background:{colors[i]};
-                        display:flex;
-                        align-items:center;
-                        justify-content:center;
-                        padding:40px;
-                        box-sizing:border-box;
-                    '>
-                        <p style='
-                            color:white;
-                            font-size:52px;
-                            font-weight:bold;
-                            text-align:center;
-                            font-family:Arial,sans-serif;
-                            line-height:1.4;
-                        '>{line}</p>
-                    </div>
-                    """,
+                    "html": f"<div style='width:1280px;height:720px;background:{colors[i]};display:flex;align-items:center;justify-content:center;padding:60px;box-sizing:border-box;'><p style='color:white;font-size:48px;font-weight:bold;text-align:center;font-family:Arial,sans-serif;line-height:1.4;'>{line}</p></div>",
                     "width": 1280,
-                    "height": 720
+                    "height": 720,
+                    "top": 0,
+                    "left": 0
                 }
             ]
         })
 
-    # Add final slide with topic
     scenes.append({
         "comment": "Final slide",
         "duration": 3,
         "elements": [
             {
                 "type": "html",
-                "html": f"""
-                <div style='
-                    width:100%; height:100%;
-                    background:#0a192f;
-                    display:flex;
-                    align-items:center;
-                    justify-content:center;
-                    padding:40px;
-                    box-sizing:border-box;
-                    flex-direction:column;
-                '>
-                    <p style='
-                        color:#64ffda;
-                        font-size:36px;
-                        font-weight:bold;
-                        text-align:center;
-                        font-family:Arial,sans-serif;
-                    '>Agentic AI Cybersecurity</p>
-                    <p style='
-                        color:#8892b0;
-                        font-size:24px;
-                        text-align:center;
-                        font-family:Arial,sans-serif;
-                        margin-top:20px;
-                    '>By Aurobinda Ojha</p>
-                </div>
-                """,
+                "html": "<div style='width:1280px;height:720px;background:#0a192f;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:40px;box-sizing:border-box;'><p style='color:#64ffda;font-size:40px;font-weight:bold;text-align:center;font-family:Arial,sans-serif;'>Agentic AI Cybersecurity</p><p style='color:#8892b0;font-size:26px;text-align:center;font-family:Arial,sans-serif;margin-top:20px;'>By Aurobinda Ojha</p></div>",
                 "width": 1280,
-                "height": 720
+                "height": 720,
+                "top": 0,
+                "left": 0
             }
         ]
     })
 
     payload = {
         "resolution": "hd",
-        "quality": 7,
+        "quality": 5,
         "scenes": scenes
     }
 
+    print(f"Sending payload to JSON2Video...")
     r = requests.post(
         "https://api.json2video.com/v2/movies",
         headers={
@@ -154,11 +112,11 @@ def generate_video(post_content):
         },
         json=payload
     )
+    print(f"Response: {r.status_code} - {r.text[:200]}")
     r.raise_for_status()
     project_id = r.json().get("project")
     print(f"Video project created: {project_id}")
 
-    # Wait for video to render
     print("Waiting for video to render...")
     for i in range(30):
         time.sleep(10)
@@ -168,6 +126,7 @@ def generate_video(post_content):
         )
         status_r.raise_for_status()
         status_data = status_r.json()
+        print(f"Full status response: {status_data}")
         status = status_data.get("movie", {}).get("status")
         print(f"Status: {status}")
 
@@ -177,14 +136,15 @@ def generate_video(post_content):
             video_data = requests.get(video_url).content
             return video_data
         elif status == "error":
-            raise Exception("Video generation failed!")
+            error_msg = status_data.get("movie", {}).get("error", "Unknown error")
+            print(f"Error details: {error_msg}")
+            raise Exception(f"Video generation failed: {error_msg}")
 
     raise Exception("Video render timeout!")
 
 def upload_video_to_linkedin(video_data):
     print(f"[{datetime.now()}] Registering video upload with LinkedIn...")
 
-    # Step 1 - Register upload
     register_payload = {
         "registerUploadRequest": {
             "recipes": ["urn:li:digitalmediaRecipe:feedshare-video"],
@@ -210,7 +170,6 @@ def upload_video_to_linkedin(video_data):
     asset = response_json["value"]["asset"]
     print(f"Asset ID: {asset}")
 
-    # Step 2 - Upload video binary
     upload_headers = {
         "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
         "Content-Type": "video/mp4"
@@ -227,17 +186,12 @@ def upload_video_to_linkedin(video_data):
 def job_post():
     print(f"[{datetime.now()}] Generating LinkedIn video post about: {TOPIC}")
 
-    # Generate post text
     content = ai_generate_post(TOPIC)
     print(f"Generated content: {content[:100]}...")
 
-    # Generate video
     video_data = generate_video(content)
-
-    # Upload video to LinkedIn
     asset = upload_video_to_linkedin(video_data)
 
-    # Post with video
     payload = {
         "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
         "lifecycleState": "PUBLISHED",
