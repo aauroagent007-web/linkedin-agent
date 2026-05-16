@@ -1,13 +1,12 @@
 import openai
 import requests
 import os
-import time
 from datetime import datetime
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 LINKEDIN_ACCESS_TOKEN = os.environ["LINKEDIN_ACCESS_TOKEN"]
 LINKEDIN_PERSON_ID = os.environ["LINKEDIN_PERSON_ID"]
-JSON2VIDEO_API_KEY = os.environ["JSON2VIDEO_API_KEY"]
+PEXELS_API_KEY = os.environ["PEXELS_API_KEY"]
 TOPIC = os.environ.get("TOPIC", "Agentic AI cybersecurity and autonomous threat detection")
 RUN_MODE = os.environ.get("RUN_MODE", "post")
 
@@ -42,104 +41,75 @@ def ai_generate_post(topic):
     )
     return response.choices[0].message.content.strip()
 
-def ai_generate_video_text(post_content):
+def ai_generate_search_keyword(post_content):
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "user", "content":
-                f"Based on this LinkedIn post, write 3 short punchy lines (max 8 words each) "
-                f"for a video slide show. Each line should be a key insight.\n"
+                f"Based on this LinkedIn post, give me 2-3 keywords to search for a matching "
+                f"professional motion video.\n"
                 f"Post: {post_content[:300]}\n"
-                f"Reply with ONLY 3 lines, nothing else."}
+                f"Reply with ONLY the keywords. Example: cybersecurity network hacker"}
         ],
-        max_tokens=60,
+        max_tokens=20,
     )
-    lines = response.choices[0].message.content.strip().split('\n')
-    return [l.strip() for l in lines if l.strip()][:3]
+    return response.choices[0].message.content.strip()
 
-def generate_video(post_content):
-    print(f"[{datetime.now()}] Generating video with JSON2Video...")
+def get_matching_video(post_content):
+    print(f"[{datetime.now()}] Finding matching video from Pexels...")
 
-    text_lines = ai_generate_video_text(post_content)
-    print(f"Video text lines: {text_lines}")
+    keyword = ai_generate_search_keyword(post_content)
+    print(f"Search keyword: {keyword}")
 
-    colors = ["#0a192f", "#112240", "#1d3a6e"]
-    scenes = []
-
-    for i, line in enumerate(text_lines):
-        scenes.append({
-            "comment": f"Slide {i+1}",
-            "duration": 3,
-            "elements": [
-                {
-                    "type": "html",
-                    "html": f"<div style='width:1280px;height:720px;background:{colors[i]};display:flex;align-items:center;justify-content:center;padding:60px;box-sizing:border-box;'><p style='color:white;font-size:48px;font-weight:bold;text-align:center;font-family:Arial,sans-serif;line-height:1.4;'>{line}</p></div>",
-                    "width": 1280,
-                    "height": 720,
-                    "top": 0,
-                    "left": 0
-                }
-            ]
-        })
-
-    scenes.append({
-        "comment": "Final slide",
-        "duration": 3,
-        "elements": [
-            {
-                "type": "html",
-                "html": "<div style='width:1280px;height:720px;background:#0a192f;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:40px;box-sizing:border-box;'><p style='color:#64ffda;font-size:40px;font-weight:bold;text-align:center;font-family:Arial,sans-serif;'>Agentic AI Cybersecurity</p><p style='color:#8892b0;font-size:26px;text-align:center;font-family:Arial,sans-serif;margin-top:20px;'>By Aurobinda Ojha</p></div>",
-                "width": 1280,
-                "height": 720,
-                "top": 0,
-                "left": 0
-            }
-        ]
-    })
-
-    payload = {
-        "resolution": "hd",
-        "scenes": scenes
-    }
-
-    print(f"Sending payload to JSON2Video...")
-    r = requests.post(
-        "https://api.json2video.com/v2/movies",
-        headers={
-            "x-api-key": JSON2VIDEO_API_KEY,
-            "Content-Type": "application/json"
+    # Search Pexels for matching video
+    r = requests.get(
+        "https://api.pexels.com/v1/videos/search",
+        params={
+            "query": keyword,
+            "per_page": 5,
+            "orientation": "landscape",
+            "size": "medium"
         },
-        json=payload
+        headers={"Authorization": PEXELS_API_KEY}
     )
-    print(f"Response: {r.status_code} - {r.text[:200]}")
     r.raise_for_status()
-    project_id = r.json().get("project")
-    print(f"Video project created: {project_id}")
+    videos = r.json().get("videos", [])
 
-    print("Waiting for video to render...")
-    for i in range(30):
-        time.sleep(10)
-        status_r = requests.get(
-            f"https://api.json2video.com/v2/movies?project={project_id}",
-            headers={"x-api-key": JSON2VIDEO_API_KEY}
+    if not videos:
+        # Fallback search
+        print("No results found, trying fallback search...")
+        r = requests.get(
+            "https://api.pexels.com/v1/videos/search",
+            params={"query": "cybersecurity technology", "per_page": 3},
+            headers={"Authorization": PEXELS_API_KEY}
         )
-        status_r.raise_for_status()
-        status_data = status_r.json()
-        print(f"Full status response: {status_data}")
-        status = status_data.get("movie", {}).get("status")
-        print(f"Status: {status}")
+        r.raise_for_status()
+        videos = r.json().get("videos", [])
 
-        if status == "done":
-            video_url = status_data["movie"]["url"]
-            print(f"Video ready: {video_url}")
-            video_data = requests.get(video_url).content
-            return video_data
-        elif status == "error":
-            error_msg = status_data.get("movie", {}).get("message", "Unknown error")
-            print(f"Error details: {error_msg}")
-            raise Exception(f"Video generation failed: {error_msg}")
+    if not videos:
+        raise Exception("No videos found on Pexels!")
 
-    raise Exception("Video render timeout!")
+    # Get HD video file
+    video = videos[0]
+    video_files = video.get("video_files", [])
+
+    # Find HD or SD file
+    hd_file = None
+    for vf in video_files:
+        if vf.get("quality") in ["hd", "sd"] and vf.get("file_type") == "video/mp4":
+            hd_file = vf
+            break
+
+    if not hd_file:
+        hd_file = video_files[0]
+
+    video_url = hd_file.get("link")
+    print(f"Found video: {video_url[:60]}...")
+
+    # Download video
+    video_data = requests.get(video_url).content
+    print(f"Video downloaded: {len(video_data)} bytes")
+    return video_data
 
 def upload_video_to_linkedin(video_data):
     print(f"[{datetime.now()}] Registering video upload with LinkedIn...")
@@ -188,7 +158,7 @@ def job_post():
     content = ai_generate_post(TOPIC)
     print(f"Generated content: {content[:100]}...")
 
-    video_data = generate_video(content)
+    video_data = get_matching_video(content)
     asset = upload_video_to_linkedin(video_data)
 
     payload = {
