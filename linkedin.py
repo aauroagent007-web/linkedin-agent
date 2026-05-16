@@ -99,7 +99,6 @@ def generate_video(post_content):
 
     payload = {
         "resolution": "hd",
-        "quality": 5,
         "scenes": scenes
     }
 
@@ -136,7 +135,7 @@ def generate_video(post_content):
             video_data = requests.get(video_url).content
             return video_data
         elif status == "error":
-            error_msg = status_data.get("movie", {}).get("error", "Unknown error")
+            error_msg = status_data.get("movie", {}).get("message", "Unknown error")
             print(f"Error details: {error_msg}")
             raise Exception(f"Video generation failed: {error_msg}")
 
