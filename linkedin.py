@@ -79,7 +79,7 @@ def get_background_image(post_content):
     day_of_year = datetime.now().timetuple().tm_yday
 
     r = requests.get(
-        "https://api.pexels.com/photos/search",
+        "https://api.pexels.com/v1/photos/search",
         params={
             "query": keyword,
             "per_page": 15,
@@ -93,7 +93,7 @@ def get_background_image(post_content):
     if not photos:
         print("No photos found, using fallback...")
         r = requests.get(
-            "https://api.pexels.com/photos/search",
+            "https://api.pexels.com/v1/photos/search",
             params={"query": "cybersecurity dark technology", "per_page": 10},
             headers={"Authorization": PEXELS_API_KEY}
         )
@@ -110,26 +110,19 @@ def get_background_image(post_content):
 def create_post_image(post_content, headline):
     print(f"[{datetime.now()}] Creating creative image...")
 
-    # Get matching background
     bg_image = get_background_image(post_content)
 
-    # Resize to LinkedIn optimal size
     width, height = 1200, 627
     bg_image = bg_image.resize((width, height), Image.LANCZOS)
 
-    draw = ImageDraw.Draw(bg_image)
-
-    # Add dark overlay for readability
     overlay = Image.new("RGBA", (width, height), (0, 0, 0, 180))
     bg_image = bg_image.convert("RGBA")
     bg_image = Image.alpha_composite(bg_image, overlay)
     bg_image = bg_image.convert("RGB")
     draw = ImageDraw.Draw(bg_image)
 
-    # Add left accent bar
     draw.rectangle([(40, 40), (48, height - 40)], fill=(100, 255, 218))
 
-    # Try to use a font, fallback to default
     try:
         font_headline = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 52)
         font_body = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 28)
@@ -141,30 +134,23 @@ def create_post_image(post_content, headline):
         font_author = ImageFont.load_default()
         font_tag = ImageFont.load_default()
 
-    # Draw headline
     headline_wrapped = textwrap.fill(headline, width=35)
     draw.text((70, 80), headline_wrapped, font=font_headline, fill=(100, 255, 218))
 
-    # Draw separator line
     draw.rectangle([(70, 200), (500, 203)], fill=(100, 255, 218))
 
-    # Draw first paragraph of post (shortened)
     first_para = post_content.split('\n')[0][:200]
     body_wrapped = textwrap.fill(first_para, width=55)
     draw.text((70, 220), body_wrapped, font=font_body, fill=(255, 255, 255))
 
-    # Draw bottom bar
     draw.rectangle([(0, height - 80), (width, height)], fill=(10, 25, 47))
 
-    # Draw author name
     draw.text((70, height - 58), "Aurobinda Ojha", font=font_author, fill=(100, 255, 218))
     draw.text((70, height - 32), "Independent Researcher | Cybersecurity & Agentic AI", font=font_tag, fill=(136, 146, 176))
 
-    # Draw topic tag top right
     tag_text = "#AgenticAI #Cybersecurity"
     draw.text((width - 350, 50), tag_text, font=font_tag, fill=(100, 255, 218))
 
-    # Save to bytes
     img_bytes = io.BytesIO()
     bg_image.save(img_bytes, format="JPEG", quality=95)
     img_bytes.seek(0)
