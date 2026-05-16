@@ -5,7 +5,7 @@ import textwrap
 import random
 import hashlib
 from datetime import datetime
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 import io
 import math
 
@@ -24,11 +24,10 @@ LINKEDIN_HEADERS = {
 }
 
 AGENT_PERSONA = """You are Aurobinda Ojha, an Independent Researcher on Cybersecurity
-and Agentic AI. You write sharp, insightful LinkedIn posts about cybersecurity,
-AI agents, autonomous threat detection, and emerging tech trends.
-Be professional, engaging, and thought provoking.
-Use plain text only. No markdown. Max 3 paragraphs.
-End with a question to spark discussion."""
+and Agentic AI. You write sharp, punchy LinkedIn posts with short lines and emojis.
+Your style is direct, conversational and thought provoking.
+You use line breaks between thoughts. You add emojis to key points.
+Plain text only. No markdown. Short sentences. Max 150 words."""
 
 COLOR_THEMES = [
     {"bg_top": (10, 25, 47), "bg_bottom": (0, 10, 30), "accent": (100, 255, 218), "highlight": (0, 180, 255)},
@@ -46,11 +45,22 @@ def ai_generate_post(topic):
         messages=[
             {"role": "system", "content": AGENT_PERSONA},
             {"role": "user", "content":
-                f"Write a professional LinkedIn post about a fresh angle on: {topic}\n"
-                f"Examples: AI agent prompt injection, autonomous malware detection, "
-                f"zero-trust for AI agents, LLM vulnerabilities, agentic AI threat hunting.\n"
-                f"Be professional and engaging. Plain text only. Max 3 paragraphs.\n"
-                f"End with a thought provoking question."}
+                f"Write a professional LinkedIn post about a fresh angle on: {topic}\n\n"
+                f"IMPORTANT FORMAT RULES:\n"
+                f"- Write in SHORT lines with line breaks between each thought\n"
+                f"- Max 2-3 sentences per paragraph\n"
+                f"- Add relevant emojis at the start of key lines\n"
+                f"- Use simple conversational language\n"
+                f"- Start with a hook line that grabs attention\n"
+                f"- End with a question to spark discussion\n"
+                f"- Total max 150 words\n\n"
+                f"Example style:\n"
+                f"Most people think AI agents are just chatbots.\n\n"
+                f"They're wrong.\n\n"
+                f"🤖 Agentic AI can now autonomously detect and respond to threats.\n\n"
+                f"🔐 Without human intervention.\n\n"
+                f"This changes everything about how we think about cybersecurity.\n\n"
+                f"Are your defenses ready for machine-speed attacks?"}
         ],
         max_tokens=400,
     )
@@ -69,22 +79,33 @@ def ai_generate_headline(post_content):
     )
     return response.choices[0].message.content.strip()
 
-def ai_generate_key_points(post_content):
+def ai_generate_image_data(post_content):
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "user", "content":
-                f"Based on this LinkedIn post, extract 3 key bullet points (max 6 words each).\n"
-                f"Post: {post_content}\n"
-                f"Reply with ONLY 3 lines starting with bullet symbol, nothing else.\n"
-                f"Example:\n• AI agents detect threats faster\n• Zero-trust models need updating\n• Human oversight remains critical"}
+                f"Based on this LinkedIn post, generate structured data for an infographic image.\n"
+                f"Post: {post_content}\n\n"
+                f"Reply with JSON only, no extra text:\n"
+                f"{{\n"
+                f"  \"stat1_number\": \"85%\",\n"
+                f"  \"stat1_label\": \"of attacks use AI\",\n"
+                f"  \"stat2_number\": \"3x\",\n"
+                f"  \"stat2_label\": \"faster threat detection\",\n"
+                f"  \"stat3_number\": \"$4.5M\",\n"
+                f"  \"stat3_label\": \"average breach cost\",\n"
+                f"  \"key_insight\": \"One short powerful insight from the post (max 10 words)\",\n"
+                f"  \"visual_type\": \"one of: network, shield, brain, lock, warning, graph\"\n"
+                f"}}"}
         ],
-        max_tokens=60,
+        max_tokens=200,
     )
-    return response.choices[0].message.content.strip()
+    raw = response.choices[0].message.content.strip()
+    raw = raw.replace("```json", "").replace("```", "").strip()
+    import json
+    return json.loads(raw)
 
 def get_content_seed(post_content):
-    # Generate unique seed from post content
     hash_val = int(hashlib.md5(post_content.encode()).hexdigest(), 16)
     return hash_val
 
@@ -99,154 +120,216 @@ def create_gradient_background(width, height, color_top, color_bottom):
         draw.line([(0, y), (width, y)], fill=(r, g, b))
     return image
 
+def draw_network_visual(draw, cx, cy, size, accent, highlight, rng):
+    nodes = []
+    for i in range(6):
+        angle = math.pi / 3 * i
+        nx = cx + size * math.cos(angle)
+        ny = cy + size * math.sin(angle)
+        nodes.append((nx, ny))
+        draw.ellipse([(nx-8, ny-8), (nx+8, ny+8)], fill=accent)
+    draw.ellipse([(cx-12, cy-12), (cx+12, cy+12)], fill=highlight)
+    for node in nodes:
+        draw.line([(cx, cy), node], fill=accent, width=1)
+    for i in range(len(nodes)):
+        if rng.random() > 0.5:
+            draw.line([nodes[i], nodes[(i+1) % len(nodes)]], fill=accent, width=1)
+
+def draw_shield_visual(draw, cx, cy, size, accent, highlight):
+    shield_points = [
+        (cx, cy - size),
+        (cx + size * 0.8, cy - size * 0.5),
+        (cx + size * 0.8, cy + size * 0.2),
+        (cx, cy + size),
+        (cx - size * 0.8, cy + size * 0.2),
+        (cx - size * 0.8, cy - size * 0.5),
+    ]
+    draw.polygon(shield_points, outline=accent, fill=None)
+    inner = [(cx + (p[0]-cx)*0.7, cy + (p[1]-cy)*0.7) for p in shield_points]
+    draw.polygon(inner, outline=highlight, fill=None)
+    draw.text((cx - 10, cy - 15), "✓", fill=accent)
+
+def draw_brain_visual(draw, cx, cy, size, accent, highlight, rng):
+    draw.ellipse([(cx-size, cy-size*0.8), (cx+size, cy+size*0.8)], outline=accent)
+    draw.line([(cx, cy-size*0.8), (cx, cy+size*0.8)], fill=highlight, width=2)
+    for i in range(4):
+        y = cy - size*0.5 + i * (size*0.3)
+        draw.arc([(cx-size*0.8, y-15), (cx, y+15)], 180, 0, fill=accent)
+
+def draw_lock_visual(draw, cx, cy, size, accent, highlight):
+    draw.rectangle([(cx-size*0.6, cy), (cx+size*0.6, cy+size)], outline=accent)
+    draw.arc([(cx-size*0.5, cy-size*0.8), (cx+size*0.5, cy+size*0.2)], 180, 0, fill=highlight)
+    draw.ellipse([(cx-8, cy+size*0.4), (cx+8, cy+size*0.6)], fill=accent)
+
+def draw_warning_visual(draw, cx, cy, size, accent, highlight):
+    triangle = [(cx, cy-size), (cx+size, cy+size*0.8), (cx-size, cy+size*0.8)]
+    draw.polygon(triangle, outline=accent)
+    inner = [(cx + (p[0]-cx)*0.7, cy + (p[1]-cy)*0.7) for p in triangle]
+    draw.polygon(inner, outline=highlight)
+    draw.text((cx-8, cy-5), "!", fill=accent)
+
+def draw_graph_visual(draw, cx, cy, size, accent, highlight, rng):
+    draw.line([(cx-size, cy+size*0.5), (cx+size, cy+size*0.5)], fill=accent, width=2)
+    draw.line([(cx-size, cy-size), (cx-size, cy+size*0.5)], fill=accent, width=2)
+    points = []
+    for i in range(6):
+        x = cx - size + i * (size*0.4)
+        y = cy + size*0.5 - rng.randint(10, int(size*1.3))
+        points.append((x, y))
+    for i in range(len(points)-1):
+        draw.line([points[i], points[i+1]], fill=highlight, width=2)
+    for p in points:
+        draw.ellipse([(p[0]-4, p[1]-4), (p[0]+4, p[1]+4)], fill=accent)
+
+def draw_visual_element(draw, visual_type, cx, cy, size, accent, highlight, seed):
+    rng = random.Random(seed)
+    if visual_type == "network":
+        draw_network_visual(draw, cx, cy, size, accent, highlight, rng)
+    elif visual_type == "shield":
+        draw_shield_visual(draw, cx, cy, size, accent, highlight)
+    elif visual_type == "brain":
+        draw_brain_visual(draw, cx, cy, size, accent, highlight, rng)
+    elif visual_type == "lock":
+        draw_lock_visual(draw, cx, cy, size, accent, highlight)
+    elif visual_type == "warning":
+        draw_warning_visual(draw, cx, cy, size, accent, highlight)
+    elif visual_type == "graph":
+        draw_graph_visual(draw, cx, cy, size, accent, highlight, rng)
+    else:
+        draw_network_visual(draw, cx, cy, size, accent, highlight, rng)
+
 def draw_unique_pattern(draw, width, height, accent, highlight, seed):
     rng = random.Random(seed)
-
-    # Draw unique circuit lines based on post content
-    num_lines = rng.randint(15, 30)
-    for _ in range(num_lines):
+    for _ in range(15):
         x = rng.randint(0, width)
         y = rng.randint(0, height)
-        length = rng.randint(30, 250)
+        length = rng.randint(30, 150)
         direction = rng.choice(['h', 'v'])
         color = accent if rng.random() > 0.5 else highlight
         if direction == 'h':
             draw.line([(x, y), (x + length, y)], fill=color, width=1)
-            # Draw connector dot
-            draw.ellipse([(x+length-3, y-3), (x+length+3, y+3)], fill=color)
         else:
             draw.line([(x, y), (x, y + length)], fill=color, width=1)
-            draw.ellipse([(x-3, y+length-3), (x+3, y+length+3)], fill=color)
-
-    # Draw unique hexagon pattern based on content
-    num_hexagons = rng.randint(3, 8)
-    for _ in range(num_hexagons):
-        cx = rng.randint(width//2, width - 50)
-        cy = rng.randint(50, height - 50)
-        size = rng.randint(20, 60)
-        points = []
-        for i in range(6):
-            angle = math.pi / 3 * i
-            px = cx + size * math.cos(angle)
-            py = cy + size * math.sin(angle)
-            points.append((px, py))
-        color = accent if rng.random() > 0.5 else highlight
-        draw.polygon(points, outline=color)
-
-    # Draw unique dots
-    num_dots = rng.randint(20, 50)
-    for _ in range(num_dots):
+    for _ in range(20):
         x = rng.randint(0, width)
         y = rng.randint(0, height)
-        r = rng.randint(1, 4)
-        color = accent if rng.random() > 0.5 else highlight
-        draw.ellipse([(x-r, y-r), (x+r, y+r)], fill=color)
+        r = rng.randint(1, 3)
+        draw.ellipse([(x-r, y-r), (x+r, y+r)], fill=accent)
 
-    # Draw unique diagonal lines
-    num_diagonals = rng.randint(3, 8)
-    for _ in range(num_diagonals):
-        x1 = rng.randint(width//2, width)
-        y1 = rng.randint(0, height//2)
-        x2 = rng.randint(width//2, width)
-        y2 = rng.randint(height//2, height)
-        color = highlight
-        draw.line([(x1, y1), (x2, y2)], fill=color, width=1)
-
-    # Draw unique concentric circles
-    num_circles = rng.randint(2, 5)
-    for _ in range(num_circles):
-        cx = rng.randint(width - 200, width)
-        cy = rng.randint(0, 200)
-        for r in range(20, 100, 20):
-            draw.ellipse([(cx-r, cy-r), (cx+r, cy+r)], outline=accent)
-
-def create_post_image(post_content, headline, key_points):
-    print(f"[{datetime.now()}] Creating unique image from post content...")
+def create_post_image(post_content, headline, image_data):
+    print(f"[{datetime.now()}] Creating unique infographic image...")
 
     width, height = 1200, 627
-
-    # Use post content hash for unique seed
     seed = get_content_seed(post_content)
-
-    # Pick unique theme based on post content
     theme = COLOR_THEMES[seed % len(COLOR_THEMES)]
+
     bg_top = theme["bg_top"]
     bg_bottom = theme["bg_bottom"]
     accent = theme["accent"]
     highlight = theme["highlight"]
 
-    # Create gradient background
     bg_image = create_gradient_background(width, height, bg_top, bg_bottom)
     draw = ImageDraw.Draw(bg_image)
 
-    # Draw unique pattern based on post content
     draw_unique_pattern(draw, width, height, accent, highlight, seed)
 
-    # Draw borders
-    draw.rectangle([(0, 0), (width, 5)], fill=accent)
-    draw.rectangle([(0, height - 5), (width, height)], fill=accent)
+    # Split layout: left = text, right = visual
+    split_x = 720
+
+    # Left panel separator
     draw.rectangle([(40, 40), (46, height - 40)], fill=accent)
+    draw.line([(split_x, 40), (split_x, height - 40)], fill=accent, width=1)
+
+    # Draw visual element on right panel
+    visual_cx = split_x + (width - split_x) // 2
+    visual_cy = height // 2 - 30
+    visual_size = 80
+    draw_visual_element(
+        draw,
+        image_data.get("visual_type", "network"),
+        visual_cx, visual_cy, visual_size,
+        accent, highlight, seed
+    )
+
+    # Draw 3 stats below visual
+    stats = [
+        (image_data.get("stat1_number", ""), image_data.get("stat1_label", "")),
+        (image_data.get("stat2_number", ""), image_data.get("stat2_label", "")),
+        (image_data.get("stat3_number", ""), image_data.get("stat3_label", "")),
+    ]
 
     # Load fonts
     try:
-        font_headline = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 44)
-        font_body = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
-        font_bullet = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
-        font_author = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
-        font_tag = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 19)
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 17)
+        font_headline = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 42)
+        font_body = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 23)
+        font_insight = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+        font_stat_num = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 30)
+        font_stat_label = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
+        font_author = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+        font_tag = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
+        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
     except:
         font_headline = ImageFont.load_default()
         font_body = ImageFont.load_default()
-        font_bullet = ImageFont.load_default()
+        font_insight = ImageFont.load_default()
+        font_stat_num = ImageFont.load_default()
+        font_stat_label = ImageFont.load_default()
         font_author = ImageFont.load_default()
         font_tag = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    # Draw headline
+    # Draw stats on right panel
+    stat_y = visual_cy + visual_size + 40
+    stat_spacing = (width - split_x) // 3
+    for i, (num, label) in enumerate(stats):
+        sx = split_x + i * stat_spacing + stat_spacing // 2 - 20
+        draw.text((sx, stat_y), num, font=font_stat_num, fill=accent)
+        draw.text((sx - 10, stat_y + 36), label, font=font_stat_label, fill=(180, 180, 180))
+
+    # Draw key insight box on right
+    insight = image_data.get("key_insight", "")
+    if insight:
+        insight_wrapped = textwrap.fill(insight, width=22)
+        draw.rectangle([(split_x + 10, 40), (width - 10, 120)], fill=(0, 0, 0))
+        draw.rectangle([(split_x + 10, 40), (width - 10, 120)], outline=accent)
+        draw.text((split_x + 20, 50), insight_wrapped, font=font_insight, fill=accent)
+
+    # Left panel content
+    draw.rectangle([(0, 0), (width, 5)], fill=accent)
+    draw.rectangle([(0, height - 5), (width, height)], fill=accent)
+
+    # Headline on left
     headline_clean = headline.replace('"', '').replace("'", '')
-    headline_wrapped = textwrap.fill(headline_clean, width=40)
-    draw.text((70, 65), headline_wrapped, font=font_headline, fill=accent)
+    headline_wrapped = textwrap.fill(headline_clean, width=30)
+    draw.text((65, 60), headline_wrapped, font=font_headline, fill=accent)
 
-    # Draw separator
-    draw.rectangle([(70, 190), (600, 194)], fill=highlight)
+    # Separator
+    draw.rectangle([(65, 185), (500, 189)], fill=highlight)
 
-    # Draw key points from post content
-    bullet_lines = key_points.strip().split('\n')
-    y_pos = 210
-    for line in bullet_lines[:3]:
-        if line.strip():
-            draw.text((70, y_pos), line.strip(), font=font_bullet, fill=(220, 220, 220))
-            y_pos += 35
+    # Post excerpt lines on left
+    lines = [l for l in post_content.split('\n') if l.strip()][:5]
+    y_pos = 205
+    for line in lines:
+        if y_pos > height - 130:
+            break
+        line_wrapped = textwrap.fill(line.strip(), width=48)
+        draw.text((65, y_pos), line_wrapped, font=font_body, fill=(210, 210, 210))
+        y_pos += len(line_wrapped.split('\n')) * 28 + 8
 
-    # Draw second separator
-    draw.rectangle([(70, y_pos + 10), (400, y_pos + 13)], fill=accent)
+    # Bottom bar
+    draw.rectangle([(0, height - 90), (width, height)], fill=(5, 10, 20))
+    draw.text((65, height - 72), "Aurobinda Ojha", font=font_author, fill=accent)
+    draw.text((65, height - 46), "Independent Researcher | Cybersecurity & Agentic AI", font=font_tag, fill=(180, 180, 180))
+    draw.text((65, height - 24), "linkedin.com/in/aurobindaojha", font=font_small, fill=(100, 100, 100))
 
-    # Draw post snippet
-    first_para = post_content.split('\n')[0][:150]
-    body_wrapped = textwrap.fill(first_para, width=55)
-    draw.text((70, y_pos + 25), body_wrapped, font=font_body, fill=(180, 180, 180))
-
-    # Draw bottom bar
-    draw.rectangle([(0, height - 95), (width, height)], fill=(5, 10, 20))
-
-    # Draw author info
-    draw.text((70, height - 78), "Aurobinda Ojha", font=font_author, fill=accent)
-    draw.text((70, height - 50), "Independent Researcher | Cybersecurity & Agentic AI", font=font_tag, fill=(180, 180, 180))
-    draw.text((70, height - 26), "linkedin.com/in/aurobindaojha", font=font_small, fill=(100, 100, 100))
-
-    # Draw hashtags
-    draw.text((width - 330, 18), "#AgenticAI  #Cybersecurity", font=font_tag, fill=accent)
-
-    # Draw date
+    draw.text((width - 330, 15), "#AgenticAI  #Cybersecurity", font=font_tag, fill=accent)
     date_str = datetime.now().strftime("%B %d, %Y")
-    draw.text((width - 210, height - 28), date_str, font=font_small, fill=(100, 100, 100))
+    draw.text((width - 200, height - 26), date_str, font=font_small, fill=(100, 100, 100))
 
-    # Save
     img_bytes = io.BytesIO()
     bg_image.save(img_bytes, format="JPEG", quality=95)
     img_bytes.seek(0)
-    print(f"Unique image created! Seed: {seed}")
+    print(f"Infographic image created! Visual type: {image_data.get('visual_type')}")
     return img_bytes.read()
 
 def upload_image_to_linkedin(image_data):
@@ -291,7 +374,7 @@ def upload_image_to_linkedin(image_data):
     return asset
 
 def job_post():
-    print(f"[{datetime.now()}] Generating LinkedIn post with unique image about: {TOPIC}")
+    print(f"[{datetime.now()}] Generating LinkedIn post with infographic about: {TOPIC}")
 
     content = ai_generate_post(TOPIC)
     print(f"Generated content: {content[:100]}...")
@@ -299,11 +382,11 @@ def job_post():
     headline = ai_generate_headline(content)
     print(f"Headline: {headline}")
 
-    key_points = ai_generate_key_points(content)
-    print(f"Key points: {key_points}")
+    image_data = ai_generate_image_data(content)
+    print(f"Image data: {image_data}")
 
-    image_data = create_post_image(content, headline, key_points)
-    asset = upload_image_to_linkedin(image_data)
+    image_bytes = create_post_image(content, headline, image_data)
+    asset = upload_image_to_linkedin(image_bytes)
 
     payload = {
         "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
@@ -340,7 +423,7 @@ def job_post():
     )
     r.raise_for_status()
     post_id = r.json().get("id")
-    print(f"[{datetime.now()}] LinkedIn post with unique image published! ID: {post_id}")
+    print(f"[{datetime.now()}] LinkedIn infographic post published! ID: {post_id}")
 
 if __name__ == "__main__":
     if RUN_MODE == "post":
