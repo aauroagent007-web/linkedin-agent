@@ -1,7 +1,10 @@
 import openai
 import requests
 import os
+import textwrap
 from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont
+import io
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 LINKEDIN_ACCESS_TOKEN = os.environ["LINKEDIN_ACCESS_TOKEN"]
@@ -41,77 +44,139 @@ def ai_generate_post(topic):
     )
     return response.choices[0].message.content.strip()
 
+def ai_generate_headline(post_content):
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "user", "content":
+                f"Based on this LinkedIn post, write ONE powerful headline (max 8 words).\n"
+                f"Post: {post_content[:300]}\n"
+                f"Reply with ONLY the headline, nothing else."}
+        ],
+        max_tokens=20,
+    )
+    return response.choices[0].message.content.strip()
+
 def ai_generate_search_keyword(post_content):
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "user", "content":
                 f"Based on this LinkedIn post, give me 2-3 keywords to search for a matching "
-                f"professional motion video.\n"
+                f"professional dark cybersecurity background photo.\n"
                 f"Post: {post_content[:300]}\n"
-                f"Reply with ONLY the keywords. Example: cybersecurity network hacker"}
+                f"Reply with ONLY the keywords. Example: cybersecurity network dark"}
         ],
         max_tokens=20,
     )
     return response.choices[0].message.content.strip()
 
-def get_matching_video(post_content):
-    print(f"[{datetime.now()}] Finding matching video from Pexels...")
-
+def get_background_image(post_content):
+    print(f"[{datetime.now()}] Getting background image from Pexels...")
     keyword = ai_generate_search_keyword(post_content)
     print(f"Search keyword: {keyword}")
 
+    day_of_year = datetime.now().timetuple().tm_yday
+
     r = requests.get(
-        "https://api.pexels.com/v1/videos/search",
+        "https://api.pexels.com/photos/search",
         params={
             "query": keyword,
-            "per_page": 5,
-            "orientation": "landscape",
-            "size": "medium"
+            "per_page": 15,
+            "orientation": "landscape"
         },
         headers={"Authorization": PEXELS_API_KEY}
     )
     r.raise_for_status()
-    videos = r.json().get("videos", [])
+    photos = r.json().get("photos", [])
 
-    if not videos:
-        print("No results found, trying fallback search...")
+    if not photos:
+        print("No photos found, using fallback...")
         r = requests.get(
-            "https://api.pexels.com/v1/videos/search",
-            params={"query": "cybersecurity technology", "per_page": 3},
+            "https://api.pexels.com/photos/search",
+            params={"query": "cybersecurity dark technology", "per_page": 10},
             headers={"Authorization": PEXELS_API_KEY}
         )
         r.raise_for_status()
-        videos = r.json().get("videos", [])
+        photos = r.json().get("photos", [])
 
-    if not videos:
-        raise Exception("No videos found on Pexels!")
+    photo = photos[day_of_year % len(photos)]
+    image_url = photo["src"]["large2x"]
+    print(f"Background image: {image_url[:60]}...")
 
-    video = videos[0]
-    video_files = video.get("video_files", [])
+    image_data = requests.get(image_url).content
+    return Image.open(io.BytesIO(image_data)).convert("RGB")
 
-    hd_file = None
-    for vf in video_files:
-        if vf.get("quality") in ["hd", "sd"] and vf.get("file_type") == "video/mp4":
-            hd_file = vf
-            break
+def create_post_image(post_content, headline):
+    print(f"[{datetime.now()}] Creating creative image...")
 
-    if not hd_file:
-        hd_file = video_files[0]
+    # Get matching background
+    bg_image = get_background_image(post_content)
 
-    video_url = hd_file.get("link")
-    print(f"Found video: {video_url[:60]}...")
+    # Resize to LinkedIn optimal size
+    width, height = 1200, 627
+    bg_image = bg_image.resize((width, height), Image.LANCZOS)
 
-    video_data = requests.get(video_url).content
-    print(f"Video downloaded: {len(video_data)} bytes")
-    return video_data
+    draw = ImageDraw.Draw(bg_image)
 
-def upload_video_to_linkedin(video_data):
-    print(f"[{datetime.now()}] Registering video upload with LinkedIn...")
+    # Add dark overlay for readability
+    overlay = Image.new("RGBA", (width, height), (0, 0, 0, 180))
+    bg_image = bg_image.convert("RGBA")
+    bg_image = Image.alpha_composite(bg_image, overlay)
+    bg_image = bg_image.convert("RGB")
+    draw = ImageDraw.Draw(bg_image)
+
+    # Add left accent bar
+    draw.rectangle([(40, 40), (48, height - 40)], fill=(100, 255, 218))
+
+    # Try to use a font, fallback to default
+    try:
+        font_headline = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 52)
+        font_body = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 28)
+        font_author = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+        font_tag = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
+    except:
+        font_headline = ImageFont.load_default()
+        font_body = ImageFont.load_default()
+        font_author = ImageFont.load_default()
+        font_tag = ImageFont.load_default()
+
+    # Draw headline
+    headline_wrapped = textwrap.fill(headline, width=35)
+    draw.text((70, 80), headline_wrapped, font=font_headline, fill=(100, 255, 218))
+
+    # Draw separator line
+    draw.rectangle([(70, 200), (500, 203)], fill=(100, 255, 218))
+
+    # Draw first paragraph of post (shortened)
+    first_para = post_content.split('\n')[0][:200]
+    body_wrapped = textwrap.fill(first_para, width=55)
+    draw.text((70, 220), body_wrapped, font=font_body, fill=(255, 255, 255))
+
+    # Draw bottom bar
+    draw.rectangle([(0, height - 80), (width, height)], fill=(10, 25, 47))
+
+    # Draw author name
+    draw.text((70, height - 58), "Aurobinda Ojha", font=font_author, fill=(100, 255, 218))
+    draw.text((70, height - 32), "Independent Researcher | Cybersecurity & Agentic AI", font=font_tag, fill=(136, 146, 176))
+
+    # Draw topic tag top right
+    tag_text = "#AgenticAI #Cybersecurity"
+    draw.text((width - 350, 50), tag_text, font=font_tag, fill=(100, 255, 218))
+
+    # Save to bytes
+    img_bytes = io.BytesIO()
+    bg_image.save(img_bytes, format="JPEG", quality=95)
+    img_bytes.seek(0)
+    print(f"Image created successfully!")
+    return img_bytes.read()
+
+def upload_image_to_linkedin(image_data):
+    print(f"[{datetime.now()}] Uploading image to LinkedIn...")
 
     register_payload = {
         "registerUploadRequest": {
-            "recipes": ["urn:li:digitalmediaRecipe:feedshare-video"],
+            "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
             "owner": f"urn:li:person:{LINKEDIN_PERSON_ID}",
             "serviceRelationships": [
                 {
@@ -136,25 +201,28 @@ def upload_video_to_linkedin(video_data):
 
     upload_headers = {
         "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
-        "Content-Type": "video/mp4"
+        "Content-Type": "application/octet-stream"
     }
     upload_response = requests.put(
         upload_url,
         headers=upload_headers,
-        data=video_data
+        data=image_data
     )
     upload_response.raise_for_status()
-    print(f"Video uploaded successfully!")
+    print(f"Image uploaded successfully!")
     return asset
 
 def job_post():
-    print(f"[{datetime.now()}] Generating LinkedIn video post about: {TOPIC}")
+    print(f"[{datetime.now()}] Generating LinkedIn post with creative image about: {TOPIC}")
 
     content = ai_generate_post(TOPIC)
     print(f"Generated content: {content[:100]}...")
 
-    video_data = get_matching_video(content)
-    asset = upload_video_to_linkedin(video_data)
+    headline = ai_generate_headline(content)
+    print(f"Headline: {headline}")
+
+    image_data = create_post_image(content, headline)
+    asset = upload_image_to_linkedin(image_data)
 
     payload = {
         "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
@@ -164,16 +232,16 @@ def job_post():
                 "shareCommentary": {
                     "text": content
                 },
-                "shareMediaCategory": "VIDEO",
+                "shareMediaCategory": "IMAGE",
                 "media": [
                     {
                         "status": "READY",
                         "description": {
-                            "text": "Cybersecurity AI insights"
+                            "text": headline
                         },
                         "media": asset,
                         "title": {
-                            "text": TOPIC[:100]
+                            "text": headline[:100]
                         }
                     }
                 ]
@@ -191,7 +259,7 @@ def job_post():
     )
     r.raise_for_status()
     post_id = r.json().get("id")
-    print(f"[{datetime.now()}] LinkedIn video post published! ID: {post_id}")
+    print(f"[{datetime.now()}] LinkedIn post with creative image published! ID: {post_id}")
 
 if __name__ == "__main__":
     if RUN_MODE == "post":
