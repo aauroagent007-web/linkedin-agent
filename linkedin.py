@@ -61,7 +61,6 @@ def get_matching_video(post_content):
     keyword = ai_generate_search_keyword(post_content)
     print(f"Search keyword: {keyword}")
 
-    # Search Pexels for matching video
     r = requests.get(
         "https://api.pexels.com/v1/videos/search",
         params={
@@ -76,7 +75,6 @@ def get_matching_video(post_content):
     videos = r.json().get("videos", [])
 
     if not videos:
-        # Fallback search
         print("No results found, trying fallback search...")
         r = requests.get(
             "https://api.pexels.com/v1/videos/search",
@@ -89,11 +87,9 @@ def get_matching_video(post_content):
     if not videos:
         raise Exception("No videos found on Pexels!")
 
-    # Get HD video file
     video = videos[0]
     video_files = video.get("video_files", [])
 
-    # Find HD or SD file
     hd_file = None
     for vf in video_files:
         if vf.get("quality") in ["hd", "sd"] and vf.get("file_type") == "video/mp4":
@@ -106,7 +102,6 @@ def get_matching_video(post_content):
     video_url = hd_file.get("link")
     print(f"Found video: {video_url[:60]}...")
 
-    # Download video
     video_data = requests.get(video_url).content
     print(f"Video downloaded: {len(video_data)} bytes")
     return video_data
