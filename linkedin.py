@@ -1,12 +1,13 @@
 import openai
 import requests
 import os
+import time
 from datetime import datetime
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 LINKEDIN_ACCESS_TOKEN = os.environ["LINKEDIN_ACCESS_TOKEN"]
 LINKEDIN_PERSON_ID = os.environ["LINKEDIN_PERSON_ID"]
-HF_API_KEY = os.environ["HF_API_KEY"]
+JSON2VIDEO_API_KEY = os.environ["JSON2VIDEO_API_KEY"]
 TOPIC = os.environ.get("TOPIC", "Agentic AI cybersecurity and autonomous threat detection")
 RUN_MODE = os.environ.get("RUN_MODE", "post")
 
@@ -41,60 +42,152 @@ def ai_generate_post(topic):
     )
     return response.choices[0].message.content.strip()
 
-def ai_generate_image_prompt(post_content):
+def ai_generate_video_text(post_content):
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "user", "content":
-                f"Based on this LinkedIn post, write a short image generation prompt (max 50 words).\n"
-                f"Style: professional, dark blue cybersecurity theme, futuristic, no text in image.\n"
+                f"Based on this LinkedIn post, write 3 short punchy lines (max 8 words each) "
+                f"for a video slide show. Each line should be a key insight.\n"
                 f"Post: {post_content[:300]}\n"
-                f"Reply with ONLY the image prompt, nothing else."}
+                f"Reply with ONLY 3 lines, nothing else."}
         ],
-        max_tokens=100,
+        max_tokens=60,
     )
-    return response.choices[0].message.content.strip()
+    lines = response.choices[0].message.content.strip().split('\n')
+    return [l.strip() for l in lines if l.strip()][:3]
 
-def generate_image_hf(image_prompt):
-    print(f"[{datetime.now()}] Generating image with Hugging Face...")
-    print(f"Image prompt: {image_prompt}")
+def generate_video(post_content):
+    print(f"[{datetime.now()}] Generating video with JSON2Video...")
 
-    models = [
-        "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell",
-        "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1",
-        "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
-    ]
+    text_lines = ai_generate_video_text(post_content)
+    print(f"Video text lines: {text_lines}")
 
-    headers = {"Authorization": f"Bearer {HF_API_KEY}"}
-    payload = {"inputs": image_prompt}
+    # Build video with 3 slides
+    scenes = []
+    colors = ["#0a192f", "#112240", "#1d3a6e"]
 
-    for model_url in models:
-        try:
-            print(f"Trying model: {model_url}")
-            response = requests.post(
-                model_url,
-                headers=headers,
-                json=payload,
-                timeout=60
-            )
-            if response.status_code == 200:
-                print(f"Image generated successfully!")
-                return response.content
-            else:
-                print(f"Model failed with {response.status_code}, trying next...")
-        except Exception as e:
-            print(f"Model error: {e}, trying next...")
+    for i, line in enumerate(text_lines):
+        scenes.append({
+            "comment": f"Slide {i+1}",
+            "duration": 3,
+            "elements": [
+                {
+                    "type": "html",
+                    "html": f"""
+                    <div style='
+                        width:100%; height:100%;
+                        background:{colors[i]};
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        padding:40px;
+                        box-sizing:border-box;
+                    '>
+                        <p style='
+                            color:white;
+                            font-size:52px;
+                            font-weight:bold;
+                            text-align:center;
+                            font-family:Arial,sans-serif;
+                            line-height:1.4;
+                        '>{line}</p>
+                    </div>
+                    """,
+                    "width": 1280,
+                    "height": 720
+                }
+            ]
+        })
 
-    print("All HF models failed, using fallback image...")
-    image_url = "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1024"
-    return requests.get(image_url).content
+    # Add final slide with topic
+    scenes.append({
+        "comment": "Final slide",
+        "duration": 3,
+        "elements": [
+            {
+                "type": "html",
+                "html": f"""
+                <div style='
+                    width:100%; height:100%;
+                    background:#0a192f;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    padding:40px;
+                    box-sizing:border-box;
+                    flex-direction:column;
+                '>
+                    <p style='
+                        color:#64ffda;
+                        font-size:36px;
+                        font-weight:bold;
+                        text-align:center;
+                        font-family:Arial,sans-serif;
+                    '>Agentic AI Cybersecurity</p>
+                    <p style='
+                        color:#8892b0;
+                        font-size:24px;
+                        text-align:center;
+                        font-family:Arial,sans-serif;
+                        margin-top:20px;
+                    '>By Aurobinda Ojha</p>
+                </div>
+                """,
+                "width": 1280,
+                "height": 720
+            }
+        ]
+    })
 
-def upload_image_to_linkedin(image_data):
-    print(f"[{datetime.now()}] Uploading image to LinkedIn...")
+    payload = {
+        "resolution": "hd",
+        "quality": 7,
+        "scenes": scenes
+    }
 
+    r = requests.post(
+        "https://api.json2video.com/v2/movies",
+        headers={
+            "x-api-key": JSON2VIDEO_API_KEY,
+            "Content-Type": "application/json"
+        },
+        json=payload
+    )
+    r.raise_for_status()
+    project_id = r.json().get("project")
+    print(f"Video project created: {project_id}")
+
+    # Wait for video to render
+    print("Waiting for video to render...")
+    for i in range(30):
+        time.sleep(10)
+        status_r = requests.get(
+            f"https://api.json2video.com/v2/movies?project={project_id}",
+            headers={"x-api-key": JSON2VIDEO_API_KEY}
+        )
+        status_r.raise_for_status()
+        status_data = status_r.json()
+        status = status_data.get("movie", {}).get("status")
+        print(f"Status: {status}")
+
+        if status == "done":
+            video_url = status_data["movie"]["url"]
+            print(f"Video ready: {video_url}")
+            video_data = requests.get(video_url).content
+            return video_data
+        elif status == "error":
+            raise Exception("Video generation failed!")
+
+    raise Exception("Video render timeout!")
+
+def upload_video_to_linkedin(video_data):
+    print(f"[{datetime.now()}] Registering video upload with LinkedIn...")
+
+    # Step 1 - Register upload
     register_payload = {
         "registerUploadRequest": {
-            "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
+            "recipes": ["urn:li:digitalmediaRecipe:feedshare-video"],
             "owner": f"urn:li:person:{LINKEDIN_PERSON_ID}",
             "serviceRelationships": [
                 {
@@ -117,31 +210,34 @@ def upload_image_to_linkedin(image_data):
     asset = response_json["value"]["asset"]
     print(f"Asset ID: {asset}")
 
+    # Step 2 - Upload video binary
     upload_headers = {
         "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
-        "Content-Type": "application/octet-stream"
+        "Content-Type": "video/mp4"
     }
     upload_response = requests.put(
         upload_url,
         headers=upload_headers,
-        data=image_data
+        data=video_data
     )
     upload_response.raise_for_status()
-    print(f"Image uploaded successfully!")
+    print(f"Video uploaded successfully!")
     return asset
 
 def job_post():
-    print(f"[{datetime.now()}] Generating LinkedIn post about: {TOPIC}")
+    print(f"[{datetime.now()}] Generating LinkedIn video post about: {TOPIC}")
 
+    # Generate post text
     content = ai_generate_post(TOPIC)
     print(f"Generated content: {content[:100]}...")
 
-    image_prompt = ai_generate_image_prompt(content)
-    print(f"Image prompt: {image_prompt}")
+    # Generate video
+    video_data = generate_video(content)
 
-    image_data = generate_image_hf(image_prompt)
-    asset = upload_image_to_linkedin(image_data)
+    # Upload video to LinkedIn
+    asset = upload_video_to_linkedin(video_data)
 
+    # Post with video
     payload = {
         "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
         "lifecycleState": "PUBLISHED",
@@ -150,12 +246,12 @@ def job_post():
                 "shareCommentary": {
                     "text": content
                 },
-                "shareMediaCategory": "IMAGE",
+                "shareMediaCategory": "VIDEO",
                 "media": [
                     {
                         "status": "READY",
                         "description": {
-                            "text": "Cybersecurity AI visualization"
+                            "text": "Cybersecurity AI insights"
                         },
                         "media": asset,
                         "title": {
@@ -177,7 +273,7 @@ def job_post():
     )
     r.raise_for_status()
     post_id = r.json().get("id")
-    print(f"[{datetime.now()}] LinkedIn post with image published! ID: {post_id}")
+    print(f"[{datetime.now()}] LinkedIn video post published! ID: {post_id}")
 
 if __name__ == "__main__":
     if RUN_MODE == "post":
