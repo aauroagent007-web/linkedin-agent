@@ -8,6 +8,7 @@ from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import io
 import math
+import random
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 LINKEDIN_ACCESS_TOKEN = os.environ["LINKEDIN_ACCESS_TOKEN"]
@@ -23,14 +24,20 @@ LINKEDIN_HEADERS = {
     "X-Restli-Protocol-Version": "2.0.0"
 }
 
-# Rotating subtopics — ensures new content every day
-SUBTOPICS = [
+AGENT_PERSONA = """You are Aurobinda Ojha, an Independent Researcher on Cybersecurity
+and Agentic AI. You write sharp, punchy LinkedIn posts with short lines and emojis.
+Your style is direct, conversational and thought provoking.
+You use line breaks between thoughts. You add emojis to key points.
+Plain text only. No markdown. Short sentences. Max 150 words."""
+
+# 30 rotating daily topics
+DAILY_TOPICS = [
     "Prompt Injection Attacks on AI Agents",
     "Zero Trust Architecture for AI Systems",
     "Autonomous Threat Hunting with AI",
     "AI Supply Chain Security Risks",
     "Multi-Agent System Vulnerabilities",
-    "LLM Security and Jailbreaking",
+    "LLM Security and Jailbreaking Prevention",
     "Agentic AI in SOC Operations",
     "AI-Powered Malware Detection",
     "Adversarial Machine Learning Attacks",
@@ -45,44 +52,40 @@ SUBTOPICS = [
     "AI-Driven Phishing Detection",
     "Machine Learning in SIEM Systems",
     "AI Agent Identity Management",
-    "Behavioral Analytics with AI",
+    "Behavioral Analytics with AI Agents",
     "AI Security Operations Center",
-    "Deepfake Detection Systems",
+    "Deepfake Detection with AI",
     "AI Powered Ransomware Defense",
-    "Cognitive Security with AI",
+    "Cognitive Security with Agentic AI",
     "AI in Digital Forensics",
-    "Autonomous Patch Management",
+    "Autonomous Patch Management Systems",
     "AI Threat Intelligence Platforms",
-    "Explainable AI in Security",
+    "Explainable AI in Cybersecurity",
     "AI Agent Sandboxing Techniques",
 ]
 
-LAYER_COLORS = [
-    (52, 120, 90),    # green
-    (52, 100, 160),   # blue
-    (140, 80, 160),   # purple
-    (200, 120, 40),   # orange
-    (180, 60, 60),    # red
+COLOR_THEMES = [
+    {"bg": (5, 5, 15), "accent": (0, 255, 200), "highlight": (0, 180, 255), "card": (10, 20, 40)},
+    {"bg": (5, 5, 15), "accent": (255, 220, 0), "highlight": (255, 150, 0), "card": (20, 18, 5)},
+    {"bg": (5, 5, 15), "accent": (180, 80, 255), "highlight": (255, 50, 150), "card": (20, 5, 35)},
+    {"bg": (5, 5, 15), "accent": (50, 255, 150), "highlight": (0, 200, 100), "card": (5, 25, 15)},
+    {"bg": (5, 5, 15), "accent": (255, 100, 100), "highlight": (220, 50, 50), "card": (25, 5, 5)},
 ]
 
-AGENT_PERSONA = """You are Aurobinda Ojha, an Independent Researcher on Cybersecurity
-and Agentic AI. You write sharp, punchy LinkedIn posts with short lines and emojis.
-Your style is direct, conversational and thought provoking.
-You use line breaks between thoughts. You add emojis to key points.
-Plain text only. No markdown. Short sentences. Max 150 words."""
-
-def get_daily_subtopic():
+def get_daily_topic():
     day = datetime.now().timetuple().tm_yday
-    return SUBTOPICS[day % len(SUBTOPICS)]
+    return DAILY_TOPICS[day % len(DAILY_TOPICS)]
 
-def ai_generate_post(topic, subtopic):
+def get_content_seed(text):
+    return int(hashlib.md5(text.encode()).hexdigest(), 16)
+
+def ai_generate_post(subtopic):
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": AGENT_PERSONA},
             {"role": "user", "content":
-                f"Write a LinkedIn post specifically about: {subtopic}\n"
-                f"Context: {topic}\n\n"
+                f"Write a LinkedIn post specifically about: {subtopic}\n\n"
                 f"FORMAT RULES:\n"
                 f"- SHORT lines with line breaks\n"
                 f"- Add relevant emojis\n"
@@ -95,47 +98,32 @@ def ai_generate_post(topic, subtopic):
     )
     return response.choices[0].message.content.strip()
 
-def ai_generate_layer_data(subtopic):
+def ai_generate_stack_data(subtopic):
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "user", "content":
-                f"Create a layered framework diagram for: {subtopic}\n\n"
+                f"Create a 6-panel security stack infographic for: {subtopic}\n\n"
                 f"Reply with JSON only:\n"
                 f"{{\n"
-                f"  \"title\": \"The [Topic] Framework\",\n"
-                f"  \"subtitle\": \"Component1 + Component2 + Component3 + Component4 + Component5\",\n"
-                f"  \"author\": \"Aurobinda Ojha\",\n"
-                f"  \"layers\": [\n"
+                f"  \"main_title\": \"TOPIC STACK (all caps, max 4 words)\",\n"
+                f"  \"panels\": [\n"
                 f"    {{\n"
-                f"      \"number\": 1,\n"
-                f"      \"name\": \"LAYER NAME\",\n"
-                f"      \"tag\": \"The X Layer\",\n"
-                f"      \"main_items\": [\"item1 max 3 words\", \"item2 max 3 words\", \"item3 max 3 words\"],\n"
-                f"      \"sub_items\": [\"sub1 max 4 words\", \"sub2 max 4 words\"],\n"
-                f"      \"note\": \"Key insight max 10 words\"\n"
+                f"      \"title\": \"Panel Title (max 4 words)\",\n"
+                f"      \"color\": \"one of: cyan, yellow, green, orange, pink, blue\",\n"
+                f"      \"purpose\": \"One line purpose max 8 words\",\n"
+                f"      \"section1_title\": \"Section label max 3 words\",\n"
+                f"      \"section1_items\": [\"item max 4 words\", \"item max 4 words\", \"item max 4 words\"],\n"
+                f"      \"section2_title\": \"Section label max 3 words\",\n"
+                f"      \"section2_items\": [\"item max 4 words\", \"item max 4 words\", \"item max 4 words\"],\n"
+                f"      \"tools_label\": \"Key Tools:\"\n"
                 f"    }}\n"
-                f"  ],\n"
-                f"  \"left_panel\": {{\n"
-                f"    \"title\": \"External Component\",\n"
-                f"    \"items\": [\"item1 max 3 words\", \"item2 max 3 words\", \"item3 max 3 words\", \"item4 max 3 words\", \"item5 max 3 words\"]\n"
-                f"  }},\n"
-                f"  \"right_panel\": {{\n"
-                f"    \"title\": \"Output Component\",\n"
-                f"    \"items\": [\"item1 max 4 words\", \"item2 max 4 words\", \"item3 max 4 words\", \"item4 max 4 words\"]\n"
-                f"  }},\n"
-                f"  \"flow\": [\n"
-                f"    {{\"from\": \"Component1\", \"action\": \"action max 3 words\", \"to\": \"Component2\"}},\n"
-                f"    {{\"from\": \"Component2\", \"action\": \"action max 3 words\", \"to\": \"Component3\"}},\n"
-                f"    {{\"from\": \"Component3\", \"action\": \"action max 3 words\", \"to\": \"Component4\"}},\n"
-                f"    {{\"from\": \"Component4\", \"action\": \"action max 3 words\", \"to\": \"Component5\"}}\n"
                 f"  ]\n"
                 f"}}\n\n"
-                f"Create exactly 5 layers specific to {subtopic}.\n"
-                f"main_items: exactly 3 items.\n"
-                f"sub_items: exactly 2 items.\n"
-                f"note: one clear key insight.\n"
-                f"flow: exactly 4 steps."}
+                f"Create exactly 6 panels specific to {subtopic}.\n"
+                f"Each panel must have exactly 3 items in section1 and section2.\n"
+                f"Make content highly specific and technical.\n"
+                f"Vary the colors across panels."}
         ],
         max_tokens=1200,
     )
@@ -143,504 +131,292 @@ def ai_generate_layer_data(subtopic):
     raw = raw.replace("```json", "").replace("```", "").strip()
     return json.loads(raw)
 
+def get_color(name, theme_accent):
+    colors = {
+        "cyan": (0, 255, 200),
+        "yellow": (255, 220, 0),
+        "green": (50, 255, 150),
+        "orange": (255, 150, 50),
+        "pink": (255, 100, 200),
+        "blue": (50, 200, 255),
+    }
+    return colors.get(name, theme_accent)
+
 def fit_text(text, max_chars):
     if len(text) <= max_chars:
         return text
-    return text[:max_chars-3] + "..."
+    return text[:max_chars-2] + ".."
 
-def draw_rounded_rect(draw, x0, y0, x1, y1, radius, fill=None, outline=None, width=2):
+def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=8, width=2):
+    x = x0
+    while x < x1:
+        draw.line([(x, y0), (min(x+dash, x1), y0)], fill=color, width=width)
+        x += dash * 2
+    x = x0
+    while x < x1:
+        draw.line([(x, y1), (min(x+dash, x1), y1)], fill=color, width=width)
+        x += dash * 2
+    y = y0
+    while y < y1:
+        draw.line([(x0, y), (x0, min(y+dash, y1))], fill=color, width=width)
+        y += dash * 2
+    y = y0
+    while y < y1:
+        draw.line([(x1, y), (x1, min(y+dash, y1))], fill=color, width=width)
+        y += dash * 2
+
+def draw_grid(draw, width, height, color):
+    for x in range(0, width, 40):
+        draw.line([(x, 0), (x, height)], fill=color, width=1)
+    for y in range(0, height, 40):
+        draw.line([(0, y), (width, y)], fill=color, width=1)
+
+def draw_circuit(draw, width, height, accent, seed):
+    rng = random.Random(seed)
+    for _ in range(25):
+        x = rng.randint(0, width)
+        y = rng.randint(0, height)
+        l = rng.randint(30, 120)
+        d = rng.choice(['h', 'v'])
+        if d == 'h':
+            draw.line([(x, y), (x+l, y)], fill=accent, width=1)
+            draw.ellipse([(x+l-2, y-2), (x+l+2, y+2)], fill=accent)
+        else:
+            draw.line([(x, y), (x, y+l)], fill=accent, width=1)
+            draw.ellipse([(x-2, y+l-2), (x+2, y+l+2)], fill=accent)
+
+def load_fonts():
     try:
-        draw.rounded_rectangle([(x0, y0), (x1, y1)],
-                                radius=radius, fill=fill, outline=outline, width=width)
+        return {
+            "title": ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80),
+            "author": ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22),
+            "follow": ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18),
+            "panel_title": ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26),
+            "section": ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18),
+            "item": ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16),
+            "purpose": ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 15),
+            "small": ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14),
+        }
     except:
-        draw.rectangle([(x0, y0), (x1, y1)], fill=fill, outline=outline, width=width)
+        default = ImageFont.load_default()
+        return {k: default for k in ["title","author","follow","panel_title",
+                                      "section","item","purpose","small"]}
 
-def draw_arrow(draw, x1, y1, x2, y2, color, width=2):
-    draw.line([(x1, y1), (x2, y2)], fill=color, width=width)
-    angle = math.atan2(y2-y1, x2-x1)
-    arrow_size = 10
-    draw.polygon([
-        (x2, y2),
-        (int(x2 - arrow_size * math.cos(angle - 0.4)),
-         int(y2 - arrow_size * math.sin(angle - 0.4))),
-        (int(x2 - arrow_size * math.cos(angle + 0.4)),
-         int(y2 - arrow_size * math.sin(angle + 0.4)))
-    ], fill=color)
+def draw_panel(draw, x, y, w, h, panel, color, fonts, visible=True):
+    if not visible:
+        return
 
-def draw_number_badge(draw, cx, cy, number, color, font):
-    r = 18
-    draw.ellipse([(cx-r, cy-r), (cx+r, cy+r)], fill=color)
-    num_str = str(number)
-    bbox = draw.textbbox((0, 0), num_str, font=font)
-    tw = bbox[2]-bbox[0]
-    th = bbox[3]-bbox[1]
-    draw.text((cx-tw//2, cy-th//2), num_str, font=font, fill=(255, 255, 255))
+    # Card background
+    draw.rectangle([(x, y), (x+w, y+h)], fill=(10, 15, 25))
 
-def create_layer_box(draw, x, y, w, layer, color, fonts, padding=15):
-    font_num, font_name, font_tag, font_item, font_note, font_small = fonts
-
-    # Calculate required height dynamically
-    main_items = layer.get("main_items", [])[:3]
-    sub_items = layer.get("sub_items", [])[:2]
-    note = fit_text(layer.get("note", ""), 55)
-
-    h = 50  # header
-    h += len(main_items) * 22
-    h += 10  # divider gap
-    h += len(sub_items) * 22
-    h += 10  # note gap
-    note_lines = len(textwrap.fill(note, width=35).split('\n'))
-    h += note_lines * 20
-    h += padding * 2
-
-    # Outer box with light fill
-    draw_rounded_rect(draw, x, y, x+w, y+h, 12,
-                      fill=(248, 252, 248), outline=color, width=2)
+    # Dashed border
+    draw_dashed_rect(draw, x, y, x+w, y+h, color, dash=8, width=2)
 
     # Header background
-    draw_rounded_rect(draw, x, y, x+w, y+46, 12,
-                      fill=(*color, 30) if len(color) == 3 else color,
-                      outline=color, width=0)
-    draw.rectangle([(x, y+30), (x+w, y+46)],
-                   fill=(248, 252, 248))
+    draw.rectangle([(x, y), (x+w, y+44)], fill=color)
 
-    # Number badge
-    draw_number_badge(draw, x+24, y+23, layer["number"], color, font_num)
-
-    # Layer name
-    name = fit_text(layer.get("name", ""), 20)
-    draw.text((x+50, y+8), f"Layer {layer['number']} — {name}",
-              font=font_name, fill=color)
-
-    # Tag
-    tag = fit_text(layer.get("tag", ""), 22)
-    draw.text((x+50, y+28), tag, font=font_tag, fill=(120, 140, 120))
-
-    # Divider
-    draw.line([(x+10, y+50), (x+w-10, y+50)], fill=(210, 215, 210), width=1)
-
-    # Main items with checkboxes
-    iy = y + 58
-    for item in main_items:
-        item_text = fit_text(item, 28)
-        draw_rounded_rect(draw, x+12, iy+2, x+22, iy+14, 2,
-                          outline=color, width=1)
-        draw.line([(x+14, iy+8), (x+17, iy+11)], fill=color, width=1)
-        draw.line([(x+17, iy+11), (x+21, iy+5)], fill=color, width=1)
-        draw.text((x+28, iy), item_text, font=font_item, fill=(50, 60, 50))
-        iy += 22
-
-    iy += 5
-
-    # Sub items with arrows
-    for sub in sub_items:
-        sub_text = fit_text(sub, 32)
-        draw.text((x+12, iy), "→", font=font_small, fill=color)
-        draw.text((x+28, iy), sub_text, font=font_small, fill=(80, 90, 80))
-        iy += 22
-
-    iy += 5
-
-    # Note box
-    note_wrapped = textwrap.fill(note, width=35)
-    note_h = len(note_wrapped.split('\n')) * 20 + 10
-    draw_rounded_rect(draw, x+10, iy, x+w-10, iy+note_h, 6,
-                      fill=(240, 248, 240), outline=(180, 210, 180), width=1)
-    draw.text((x+16, iy+5), note_wrapped, font=font_note, fill=(60, 100, 60))
-
-    return h
-
-def create_flow_bar(draw, x, y, w, flow_steps, colors, fonts):
-    font_flow, font_small = fonts
-    bar_h = 80
-    step_count = len(flow_steps)
-    if step_count == 0:
-        return bar_h
-
-    step_w = (w - 20) // step_count
-
-    draw_rounded_rect(draw, x, y, x+w, y+bar_h, 10,
-                      fill=(245, 242, 235), outline=(200, 190, 170), width=2)
-
-    for i, step in enumerate(flow_steps):
-        sx = x + 10 + i * step_w
-        color = colors[i % len(colors)]
-
-        # Icon circle
-        cx = sx + step_w // 2 - 15
-        draw.ellipse([(cx, y+8), (cx+30, y+38)], fill=color)
-
-        # From text
-        from_text = fit_text(step.get("from", ""), 12)
-        draw.text((sx+5, y+42), from_text, font=font_small, fill=(80, 70, 60))
-
-        # Action text
-        action_text = fit_text(step.get("action", ""), 12)
-        draw.text((sx+5, y+58), action_text, font=font_small, fill=(120, 110, 100))
-
-        # Arrow between steps
-        if i < step_count - 1:
-            ax = sx + step_w - 5
-            draw.text((ax, y+15), "→", font=font_flow, fill=(150, 140, 130))
-
-    return bar_h
-
-def create_framework_image(post_content, data):
-    print(f"[{datetime.now()}] Creating framework image...")
-
-    width = 1080
-    BG_COLOR = (252, 248, 242)
-
-    # Load fonts
-    try:
-        font_main_title = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
-        font_subtitle = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
-        font_author = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
-        font_num = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
-        font_layer_name = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
-        font_layer_tag = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
-        font_item = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 17)
-        font_note = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 15)
-        font_small = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
-        font_panel_title = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
-        font_flow = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
-        font_footer = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
-    except:
-        font_main_title = ImageFont.load_default()
-        font_subtitle = font_main_title
-        font_author = font_main_title
-        font_num = font_main_title
-        font_layer_name = font_main_title
-        font_layer_tag = font_main_title
-        font_item = font_main_title
-        font_note = font_main_title
-        font_small = font_main_title
-        font_panel_title = font_main_title
-        font_flow = font_main_title
-        font_footer = font_main_title
-
-    layer_fonts = (font_num, font_layer_name, font_layer_tag,
-                   font_item, font_note, font_small)
-
-    # First pass — calculate total height
-    layers = data.get("layers", [])[:5]
-    left_panel = data.get("left_panel", {})
-    right_panel = data.get("right_panel", {})
-    flow_steps = data.get("flow", [])[:4]
-
-    MARGIN = 20
-    LEFT_W = 130
-    RIGHT_W = 150
-    MAIN_W = width - LEFT_W - RIGHT_W - MARGIN * 4
-    ARROW_H = 30
-    GAP = 12
-
-    # Header height
-    title = data.get("title", "Framework")
-    title_wrapped = textwrap.fill(title, width=28)
-    title_lines = len(title_wrapped.split('\n'))
-    header_h = 30 + title_lines * 56 + 30 + 26 + 26 + 20
-
-    # Logo area
-    logo_h = 40
-
-    # Calculate layer heights
-    layer_heights = []
-    temp_img = Image.new("RGB", (width, 100), BG_COLOR)
-    temp_draw = ImageDraw.Draw(temp_img)
-
-    for layer in layers:
-        main_items = layer.get("main_items", [])[:3]
-        sub_items = layer.get("sub_items", [])[:2]
-        note = fit_text(layer.get("note", ""), 55)
-        h = 50
-        h += len(main_items) * 22
-        h += 10
-        h += len(sub_items) * 22
-        h += 10
-        note_lines = len(textwrap.fill(note, width=35).split('\n'))
-        h += note_lines * 20
-        h += 30
-        layer_heights.append(max(h, 140))
-
-    total_layers_h = sum(layer_heights) + (len(layers)-1) * (ARROW_H + GAP)
-
-    # Flow bar height
-    flow_h = 80 + 20
-
-    # Footer height
-    footer_h = 60
-
-    total_h = (logo_h + header_h + MARGIN +
-               total_layers_h + MARGIN +
-               flow_h + footer_h + 40)
-
-    # Create image with calculated height
-    image = Image.new("RGB", (width, total_h), BG_COLOR)
-    draw = ImageDraw.Draw(image)
-
-    # Subtle dot pattern
-    for xx in range(0, width, 35):
-        for yy in range(0, total_h, 35):
-            draw.ellipse([(xx-1, yy-1), (xx+1, yy+1)], fill=(235, 230, 222))
-
-    current_y = MARGIN
-
-    # ── Logo / Brand ──────────────────────────────────────────────────────────
-    draw.text((width//2 - 60, current_y), "✦  AUROBINDA OJHA",
-              font=font_author, fill=(100, 90, 80))
-    current_y += logo_h
-
-    # ── Title ─────────────────────────────────────────────────────────────────
-    for line in title_wrapped.split('\n'):
-        bbox = draw.textbbox((0, 0), line, font=font_main_title)
+    # Panel title
+    title = fit_text(panel.get("title", ""), 20)
+    title_lines = textwrap.fill(title, width=18).split('\n')
+    ty = y + 5
+    for line in title_lines:
+        bbox = draw.textbbox((0,0), line, font=fonts["panel_title"])
         tw = bbox[2]-bbox[0]
-        draw.text(((width-tw)//2, current_y), line,
-                  font=font_main_title, fill=(30, 30, 30))
-        current_y += 56
+        draw.text((x+(w-tw)//2, ty), line, font=fonts["panel_title"], fill=(0,0,0))
+        ty += 22
 
-    # Subtitle
-    subtitle = data.get("subtitle", "")
-    subtitle_wrapped = textwrap.fill(subtitle, width=55)
-    bbox = draw.textbbox((0, 0), subtitle_wrapped, font=font_subtitle)
-    sw = bbox[2]-bbox[0]
-    draw.text(((width-sw)//2, current_y), subtitle_wrapped,
-              font=font_subtitle, fill=(100, 90, 80))
-    current_y += 30
+    # Purpose
+    purpose = fit_text(panel.get("purpose", ""), 35)
+    draw.text((x+8, y+50), "Purpose:", font=fonts["section"], fill=color)
+    purpose_wrapped = textwrap.fill(purpose, width=22)
+    draw.text((x+8, y+70), purpose_wrapped, font=fonts["purpose"], fill=(200,200,200))
 
-    # Author
-    author = data.get("author", "Aurobinda Ojha")
-    bbox = draw.textbbox((0, 0), author, font=font_author)
-    aw = bbox[2]-bbox[0]
-    draw.text(((width-aw)//2, current_y), author,
-              font=font_author, fill=(130, 120, 110))
-    current_y += 30
+    # Section 1
+    s1_y = y + 70 + len(purpose_wrapped.split('\n')) * 18 + 8
+    s1_title = fit_text(panel.get("section1_title", ""), 20)
+    draw.text((x+8, s1_y), s1_title + ":", font=fonts["section"], fill=color)
+    s1_y += 22
+    for item in panel.get("section1_items", [])[:3]:
+        item_text = fit_text(item, 22)
+        draw.ellipse([(x+10, s1_y+5), (x+16, s1_y+11)], fill=color)
+        draw.text((x+22, s1_y), item_text, font=fonts["item"], fill=(200,200,200))
+        s1_y += 20
 
-    # Divider
-    draw.line([(MARGIN*3, current_y), (width-MARGIN*3, current_y)],
-              fill=(200, 190, 180), width=1)
-    current_y += MARGIN
+    # Section 2
+    s2_y = s1_y + 8
+    s2_title = fit_text(panel.get("section2_title", ""), 20)
+    draw.text((x+8, s2_y), s2_title + ":", font=fonts["section"], fill=color)
+    s2_y += 22
+    for item in panel.get("section2_items", [])[:3]:
+        item_text = fit_text(item, 22)
+        draw.ellipse([(x+10, s2_y+5), (x+16, s2_y+11)], fill=color)
+        draw.text((x+22, s2_y), item_text, font=fonts["item"], fill=(200,200,200))
+        s2_y += 20
 
-    # ── Layer area ────────────────────────────────────────────────────────────
-    layer_start_y = current_y
-    layer_x = LEFT_W + MARGIN * 2
-    layer_end_y = layer_start_y
+    # Tools label
+    tools_y = y + h - 28
+    draw.text((x+8, tools_y), panel.get("tools_label", "Key Tools:"),
+              font=fonts["section"], fill=color)
 
-    # Draw vertical connector line on left
-    left_cx = LEFT_W // 2 + MARGIN
+def create_base_frame(width, height, bg, accent, title_text, seed, fonts):
+    img = Image.new("RGB", (width, height), bg)
+    draw = ImageDraw.Draw(img)
 
-    for idx, layer in enumerate(layers):
-        color = LAYER_COLORS[idx % len(LAYER_COLORS)]
-        lh = layer_heights[idx]
+    # Grid
+    draw_grid(draw, width, height, (18, 18, 28))
 
-        if idx > 0:
-            # Arrow down
-            draw_arrow(draw, width//2, layer_end_y + 5,
-                       width//2, layer_end_y + ARROW_H - 5,
-                       (150, 140, 130), width=2)
-            layer_end_y += ARROW_H + GAP
+    # Circuit lines
+    draw_circuit(draw, width, height, (*accent[:3], 40) if len(accent) == 4
+                 else accent, seed)
 
-        # Draw layer box
-        actual_h = create_layer_box(
-            draw, layer_x, layer_end_y,
-            MAIN_W, layer, color, layer_fonts
-        )
+    # Author circle
+    draw.ellipse([(width//2-30, 20), (width//2+30, 80)],
+                 outline=accent, width=2)
+    draw.text((width//2-16, 38), "AO", font=fonts["author"], fill=accent)
 
-        # Left connector arrow
-        mid_y = layer_end_y + actual_h // 2
-        draw_arrow(draw, left_cx + 10, mid_y,
-                   layer_x - 5, mid_y,
-                   (150, 140, 130), width=2)
+    # Author name
+    draw.text((width//2-65, 88), "Aurobinda Ojha", font=fonts["author"],
+              fill=(200,200,200))
+    draw.text((width//2-52, 112), "Follow For More", font=fonts["follow"],
+              fill=(120,120,120))
 
-        # Right connector arrow
-        right_x = layer_x + MAIN_W + 5
-        draw_arrow(draw, right_x, mid_y,
-                   width - RIGHT_W - MARGIN + 5, mid_y,
-                   (150, 140, 130), width=2)
+    # Main title
+    title_wrapped = textwrap.fill(title_text, width=16)
+    title_lines = title_wrapped.split('\n')
+    ty = 145
+    for line in title_lines:
+        bbox = draw.textbbox((0,0), line, font=fonts["title"])
+        tw = bbox[2]-bbox[0]
+        draw.text(((width-tw)//2, ty), line, font=fonts["title"],
+                  fill=(255,255,255))
+        ty += 88
 
-        layer_end_y += actual_h
+    # Underline
+    draw.rectangle([(40, ty+5), (width-40, ty+8)], fill=accent)
 
-    # ── Left panel ────────────────────────────────────────────────────────────
-    lp = left_panel
-    lp_color = (180, 120, 60)
-    lp_x = MARGIN
-    lp_w = LEFT_W - MARGIN
-    lp_h = layer_end_y - layer_start_y
+    return img, draw, ty + 20
 
-    draw_rounded_rect(draw, lp_x, layer_start_y,
-                      lp_x + lp_w, layer_start_y + lp_h,
-                      10, fill=(255,255,250),
-                      outline=lp_color, width=2)
+def create_animated_gif(subtopic, data):
+    print(f"[{datetime.now()}] Creating animated GIF for: {subtopic}")
 
-    # Left panel icon
-    draw.text((lp_x + lp_w//2 - 12, layer_start_y + 15),
-              "⚙", font=font_flow, fill=lp_color)
+    width, height = 1080, 1350
+    seed = get_content_seed(subtopic)
+    theme = COLOR_THEMES[seed % len(COLOR_THEMES)]
 
-    # Left panel title
-    lp_title = fit_text(lp.get("title", "External"), 12)
-    title_lines_lp = textwrap.fill(lp_title, width=10).split('\n')
-    ty_lp = layer_start_y + 45
-    for tl in title_lines_lp:
-        bbox = draw.textbbox((0,0), tl, font=font_panel_title)
-        tlw = bbox[2]-bbox[0]
-        draw.text((lp_x + (lp_w-tlw)//2, ty_lp), tl,
-                  font=font_panel_title, fill=lp_color)
-        ty_lp += 22
+    bg = theme["bg"]
+    accent = theme["accent"]
+    highlight = theme["highlight"]
 
-    # Left panel items
-    lp_items = lp.get("items", [])[:5]
-    iy_lp = ty_lp + 10
-    for item in lp_items:
-        item_text = fit_text(item, 10)
-        draw.ellipse([(lp_x+8, iy_lp+6), (lp_x+14, iy_lp+12)],
-                     fill=lp_color)
-        draw.text((lp_x+18, iy_lp), item_text,
-                  font=font_small, fill=(60, 50, 40))
-        iy_lp += 22
+    fonts = load_fonts()
 
-    # Left vertical arrow
-    draw_arrow(draw, left_cx, layer_start_y - 5,
-               left_cx, layer_end_y + 5,
-               (150, 140, 130), width=2)
+    panels = data.get("panels", [])[:6]
+    main_title = data.get("main_title", subtopic.upper())
 
-    # ── Right panel ───────────────────────────────────────────────────────────
-    rp = right_panel
-    rp_color = (180, 120, 60)
-    rp_x = width - RIGHT_W - MARGIN + 10
-    rp_w = RIGHT_W - MARGIN
-    rp_h = layer_end_y - layer_start_y
+    # Panel layout
+    MARGIN = 20
+    card_w = (width - MARGIN*4) // 3
+    card_h = 310
+    card_start_y = 0  # will be set after title
 
-    draw_rounded_rect(draw, rp_x, layer_start_y,
-                      rp_x + rp_w, layer_start_y + rp_h,
-                      10, fill=(255, 255, 250),
-                      outline=rp_color, width=2)
+    # Pre-calculate title height
+    title_wrapped = textwrap.fill(main_title, width=16)
+    title_h = 145 + len(title_wrapped.split('\n')) * 88 + 30
 
-    # Right panel icon
-    draw.text((rp_x + rp_w//2 - 12, layer_start_y + 15),
-              "👥", font=font_flow, fill=rp_color)
+    card_start_y = title_h
+    panel_colors = []
+    for panel in panels:
+        panel_colors.append(get_color(panel.get("color", "cyan"), accent))
 
-    # Right panel title
-    rp_title = fit_text(rp.get("title", "Output"), 12)
-    title_lines_rp = textwrap.fill(rp_title, width=10).split('\n')
-    ty_rp = layer_start_y + 45
-    for tl in title_lines_rp:
-        bbox = draw.textbbox((0,0), tl, font=font_panel_title)
-        tlw = bbox[2]-bbox[0]
-        draw.text((rp_x + (rp_w-tlw)//2, ty_rp), tl,
-                  font=font_panel_title, fill=rp_color)
-        ty_rp += 22
+    def make_frame(visible_count, blink_accent=None):
+        img, draw, content_y = create_base_frame(
+            width, height, bg, accent, main_title, seed, fonts)
 
-    # Right panel items
-    rp_items = rp.get("items", [])[:4]
-    iy_rp = ty_rp + 10
-    for item in rp_items:
-        item_text = fit_text(item, 12)
-        draw.ellipse([(rp_x+8, iy_rp+6), (rp_x+14, iy_rp+12)],
-                     fill=rp_color)
-        draw.text((rp_x+18, iy_rp), item_text,
-                  font=font_small, fill=(60, 50, 40))
-        iy_rp += 22
+        for idx in range(6):
+            col = idx % 3
+            row = idx // 2
+            px = MARGIN + col * (card_w + MARGIN)
+            py = card_start_y + row * (card_h + MARGIN)
 
-    # Right vertical arrow
-    right_cx = rp_x + rp_w//2
-    draw_arrow(draw, right_cx, layer_start_y - 5,
-               right_cx, layer_end_y + 5,
-               (150, 140, 130), width=2)
+            if idx < visible_count and idx < len(panels):
+                panel = panels[idx]
+                color = blink_accent if blink_accent and idx == visible_count-1 \
+                    else panel_colors[idx]
+                draw_panel(draw, px, py, card_w, card_h,
+                           panel, color, fonts, True)
 
-    current_y = layer_end_y + MARGIN
+        # Footer
+        footer_y = card_start_y + 2*(card_h+MARGIN) + 15
+        draw.rectangle([(0, footer_y), (width, height)], fill=(5,5,15))
+        draw.rectangle([(0, footer_y), (width, footer_y+3)], fill=accent)
+        draw.text((30, footer_y+12), "Aurobinda Ojha",
+                  font=fonts["author"], fill=accent)
+        draw.text((30, footer_y+38),
+                  "Independent Researcher | Cybersecurity & Agentic AI",
+                  font=fonts["small"], fill=(150,150,150))
+        date_str = datetime.now().strftime("%B %d, %Y")
+        draw.text((30, footer_y+60),
+                  f"#AgenticAI  #Cybersecurity  |  {date_str}",
+                  font=fonts["small"], fill=(100,100,100))
 
-    # ── Flow bar ──────────────────────────────────────────────────────────────
-    flow_x = MARGIN
-    flow_w = width - MARGIN * 2
+        # Blink border
+        if blink_accent:
+            draw.rectangle([(0, 0), (width, 4)], fill=blink_accent)
+            draw.rectangle([(0, height-4), (width, height)], fill=blink_accent)
 
-    draw_rounded_rect(draw, flow_x, current_y,
-                      flow_x + flow_w, current_y + 80,
-                      10, fill=(240, 235, 225),
-                      outline=(180, 170, 150), width=2)
+        return img
 
-    step_w = flow_w // len(flow_steps)
-    for i, step in enumerate(flow_steps):
-        sx = flow_x + i * step_w
-        color = LAYER_COLORS[i % len(LAYER_COLORS)]
+    frames = []
+    durations = []
 
-        # Circle icon
-        cx_flow = sx + step_w // 2
-        draw.ellipse([(cx_flow-18, current_y+8),
-                      (cx_flow+18, current_y+44)], fill=color)
+    # Frame 1 — title only
+    frames.append(make_frame(0))
+    durations.append(1200)
 
-        # From text
-        from_text = fit_text(step.get("from", ""), 14)
-        bbox = draw.textbbox((0,0), from_text, font=font_small)
-        ftw = bbox[2]-bbox[0]
-        draw.text((cx_flow-ftw//2, current_y+48),
-                  from_text, font=font_small, fill=(70, 60, 50))
+    # Frames 2-7 — panels appear one by one
+    for i in range(1, 7):
+        frames.append(make_frame(i))
+        durations.append(700)
 
-        # Action text
-        action = fit_text(step.get("action", ""), 14)
-        bbox = draw.textbbox((0,0), action, font=font_small)
-        atw = bbox[2]-bbox[0]
-        draw.text((cx_flow-atw//2, current_y+64),
-                  action, font=font_small, fill=(110, 100, 90))
+    # Frame 8 — all visible hold
+    frames.append(make_frame(6))
+    durations.append(2500)
 
-        # Arrow between steps
-        if i < len(flow_steps) - 1:
-            draw_arrow(draw, sx+step_w-15, current_y+26,
-                       sx+step_w+5, current_y+26,
-                       (150, 140, 130), width=2)
+    # Blink frames
+    for b in range(4):
+        blink_color = accent if b % 2 == 0 else (255, 255, 255)
+        frames.append(make_frame(6, blink_accent=blink_color))
+        durations.append(250)
 
-    current_y += 90
+    # Final hold
+    frames.append(make_frame(6))
+    durations.append(2000)
 
-    # ── Footer ────────────────────────────────────────────────────────────────
-    draw.line([(MARGIN, current_y), (width-MARGIN, current_y)],
-              fill=(200, 190, 180), width=1)
-    current_y += 10
+    # Save GIF
+    gif_bytes = io.BytesIO()
+    frames[0].save(
+        gif_bytes,
+        format="GIF",
+        save_all=True,
+        append_images=frames[1:],
+        duration=durations,
+        loop=0,
+        optimize=False
+    )
+    gif_bytes.seek(0)
+    print(f"Animated GIF created! {len(frames)} frames")
+    return gif_bytes.read()
 
-    footer_text = f"© Aurobinda Ojha  |  Follow for more insights on AI & Cybersecurity"
-    bbox = draw.textbbox((0,0), footer_text, font=font_footer)
-    fw = bbox[2]-bbox[0]
-    draw.text(((width-fw)//2, current_y), footer_text,
-              font=font_footer, fill=(120, 110, 100))
-    current_y += 22
-
-    date_str = datetime.now().strftime("%B %d, %Y")
-    hashtags = f"#AgenticAI  #Cybersecurity  #AIResearch  |  {date_str}"
-    bbox = draw.textbbox((0,0), hashtags, font=font_footer)
-    hw = bbox[2]-bbox[0]
-    draw.text(((width-hw)//2, current_y), hashtags,
-              font=font_footer, fill=(150, 140, 130))
-
-    # Save
-    img_bytes = io.BytesIO()
-    image.save(img_bytes, format="JPEG", quality=95)
-    img_bytes.seek(0)
-    print(f"Framework image created!")
-    return img_bytes.read()
-
-def upload_image_to_linkedin(image_data):
-    print(f"[{datetime.now()}] Uploading image to LinkedIn...")
+def upload_image_to_linkedin(image_data, content_type="image/gif"):
+    print(f"[{datetime.now()}] Uploading GIF to LinkedIn...")
 
     register_payload = {
         "registerUploadRequest": {
             "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
             "owner": f"urn:li:person:{LINKEDIN_PERSON_ID}",
-            "serviceRelationships": [
-                {
-                    "relationshipType": "OWNER",
-                    "identifier": "urn:li:userGeneratedContent"
-                }
-            ]
+            "serviceRelationships": [{
+                "relationshipType": "OWNER",
+                "identifier": "urn:li:userGeneratedContent"
+            }]
         }
     }
 
@@ -655,29 +431,27 @@ def upload_image_to_linkedin(image_data):
     upload_url = response_json["value"]["uploadMechanism"][
         "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]["uploadUrl"]
     asset = response_json["value"]["asset"]
-    print(f"Asset ID: {asset}")
 
     upload_headers = {
         "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
-        "Content-Type": "application/octet-stream"
+        "Content-Type": content_type
     }
-    upload_response = requests.put(upload_url, headers=upload_headers, data=image_data)
-    upload_response.raise_for_status()
-    print(f"Image uploaded successfully!")
+    requests.put(upload_url, headers=upload_headers, data=image_data).raise_for_status()
+    print(f"GIF uploaded!")
     return asset
 
 def job_post():
-    subtopic = get_daily_subtopic()
-    print(f"[{datetime.now()}] Today's subtopic: {subtopic}")
+    subtopic = get_daily_topic()
+    print(f"[{datetime.now()}] Today's topic: {subtopic}")
 
-    content = ai_generate_post(TOPIC, subtopic)
-    print(f"Generated content: {content[:100]}...")
+    content = ai_generate_post(subtopic)
+    print(f"Post: {content[:80]}...")
 
-    data = ai_generate_layer_data(subtopic)
-    print(f"Framework title: {data.get('title')}")
+    data = ai_generate_stack_data(subtopic)
+    print(f"Stack title: {data.get('main_title')}")
 
-    image_bytes = create_framework_image(content, data)
-    asset = upload_image_to_linkedin(image_bytes)
+    gif_data = create_animated_gif(subtopic, data)
+    asset = upload_image_to_linkedin(gif_data, "image/gif")
 
     payload = {
         "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
@@ -688,9 +462,9 @@ def job_post():
                 "shareMediaCategory": "IMAGE",
                 "media": [{
                     "status": "READY",
-                    "description": {"text": data.get("title", TOPIC)},
+                    "description": {"text": data.get("main_title", subtopic)},
                     "media": asset,
-                    "title": {"text": data.get("title", TOPIC)[:100]}
+                    "title": {"text": data.get("main_title", subtopic)[:100]}
                 }]
             }
         },
@@ -701,12 +475,10 @@ def job_post():
 
     r = requests.post(
         "https://api.linkedin.com/v2/ugcPosts",
-        headers=LINKEDIN_HEADERS,
-        json=payload
+        headers=LINKEDIN_HEADERS, json=payload
     )
     r.raise_for_status()
-    post_id = r.json().get("id")
-    print(f"[{datetime.now()}] LinkedIn framework post published! ID: {post_id}")
+    print(f"[{datetime.now()}] Published! ID: {r.json().get('id')}")
 
 if __name__ == "__main__":
     if RUN_MODE == "post":
