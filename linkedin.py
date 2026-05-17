@@ -43,14 +43,12 @@ def ai_generate_post(topic):
             {"role": "system", "content": AGENT_PERSONA},
             {"role": "user", "content":
                 f"Write a professional LinkedIn post about a fresh angle on: {topic}\n\n"
-                f"IMPORTANT FORMAT RULES:\n"
-                f"- Write in SHORT lines with line breaks between each thought\n"
-                f"- Max 2-3 sentences per paragraph\n"
-                f"- Add relevant emojis at the start of key lines\n"
-                f"- Use simple conversational language\n"
-                f"- Start with a hook line that grabs attention\n"
-                f"- End with a question to spark discussion\n"
-                f"- Total max 150 words"}
+                f"FORMAT RULES:\n"
+                f"- SHORT lines with line breaks between thoughts\n"
+                f"- Add relevant emojis at key lines\n"
+                f"- Start with attention grabbing hook\n"
+                f"- End with a question\n"
+                f"- Max 150 words"}
         ],
         max_tokens=400,
     )
@@ -61,11 +59,11 @@ def ai_generate_infographic_data(post_content):
         model="gpt-4o",
         messages=[
             {"role": "user", "content":
-                f"Based on this LinkedIn post about cybersecurity/AI, create structured data for an infographic.\n"
+                f"Based on this LinkedIn post, create structured infographic data.\n"
                 f"Post: {post_content}\n\n"
-                f"Reply with JSON only, no extra text:\n"
+                f"Reply with JSON only:\n"
                 f"{{\n"
-                f"  \"title\": \"SHORT TITLE IN CAPS (max 4 words)\",\n"
+                f"  \"title\": \"SHORT TITLE CAPS (max 4 words)\",\n"
                 f"  \"sections\": [\n"
                 f"    {{\n"
                 f"      \"heading\": \"Section Title\",\n"
@@ -74,8 +72,7 @@ def ai_generate_infographic_data(post_content):
                 f"    }}\n"
                 f"  ]\n"
                 f"}}\n\n"
-                f"Create exactly 6 sections that explain the post topic clearly.\n"
-                f"Make sections relevant to the post content.\n"
+                f"Create exactly 6 sections relevant to the post.\n"
                 f"Each section has exactly 3 bullet points."}
         ],
         max_tokens=600,
@@ -99,46 +96,126 @@ def get_color(name):
     return colors.get(name, (0, 255, 200))
 
 def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=8, width=2):
-    # Top
     x = x0
     while x < x1:
         draw.line([(x, y0), (min(x+dash, x1), y0)], fill=color, width=width)
         x += dash * 2
-    # Bottom
     x = x0
     while x < x1:
         draw.line([(x, y1), (min(x+dash, x1), y1)], fill=color, width=width)
         x += dash * 2
-    # Left
     y = y0
     while y < y1:
         draw.line([(x0, y), (x0, min(y+dash, y1))], fill=color, width=width)
         y += dash * 2
-    # Right
     y = y0
     while y < y1:
         draw.line([(x1, y), (x1, min(y+dash, y1))], fill=color, width=width)
         y += dash * 2
 
-def create_infographic(post_content, infographic_data):
-    print(f"[{datetime.now()}] Creating infographic image...")
+def draw_base_frame(width, height, bg, accent, infographic_data, fonts):
+    image = Image.new("RGB", (width, height), bg)
+    draw = ImageDraw.Draw(image)
 
-    width, height = 1080, 1350  # Portrait for LinkedIn
+    # Grid pattern
+    for x in range(0, width, 40):
+        draw.line([(x, 0), (x, height)], fill=(20, 20, 35), width=1)
+    for y in range(0, height, 40):
+        draw.line([(0, y), (width, y)], fill=(20, 20, 35), width=1)
+
+    font_title, font_author, font_section, font_label, font_point, font_small = fonts
+
+    # Author header
+    draw.ellipse([(width//2 - 35, 20), (width//2 + 35, 90)], outline=accent, width=2)
+    draw.text((width//2 - 20, 42), "AO", font=font_author, fill=accent)
+    draw.text((width//2 - 70, 98), "Aurobinda Ojha", font=font_author, fill=(200, 200, 200))
+    draw.text((width//2 - 55, 122), "Follow For More", font=font_small, fill=(120, 120, 120))
+
+    # Title
+    title = infographic_data.get("title", "AI SECURITY").upper()
+    title_wrapped = textwrap.fill(title, width=18)
+    title_lines = title_wrapped.split('\n')
+    title_y = 160
+    for line in title_lines:
+        bbox = draw.textbbox((0, 0), line, font=font_title)
+        title_w = bbox[2] - bbox[0]
+        draw.text(((width - title_w) // 2, title_y), line, font=font_title, fill=(255, 255, 255))
+        title_y += 80
+
+    draw.rectangle([(60, title_y + 10), (width - 60, title_y + 13)], fill=accent)
+
+    return image, draw, title_y
+
+def create_frame(width, height, bg, accent, card_bg, infographic_data, fonts, visible_cards):
+    image, draw, title_y = draw_base_frame(width, height, bg, accent, infographic_data, fonts)
+
+    font_title, font_author, font_section, font_label, font_point, font_small = fonts
+
+    sections = infographic_data.get("sections", [])[:6]
+    card_w = (width - 80) // 2 - 10
+    card_h = 270
+    card_start_y = title_y + 35
+
+    for idx, section in enumerate(sections):
+        if idx >= visible_cards:
+            break
+
+        col = idx % 2
+        row = idx // 2
+        cx = 40 + col * (card_w + 20)
+        cy = card_start_y + row * (card_h + 20)
+
+        section_color = get_color(section.get("color", "cyan"))
+
+        # Card background
+        draw.rectangle([(cx, cy), (cx + card_w, cy + card_h)], fill=card_bg)
+        draw_dashed_rect(draw, cx, cy, cx + card_w, cy + card_h, section_color)
+
+        # Heading
+        draw.rectangle([(cx, cy), (cx + card_w, cy + 40)], fill=section_color)
+        heading = section.get("heading", "")
+        heading_wrapped = textwrap.fill(heading, width=22)
+        draw.text((cx + 10, cy + 8), heading_wrapped, font=font_section, fill=(0, 0, 0))
+
+        # Points
+        points = section.get("points", [])
+        point_y = cy + 55
+        for point in points[:3]:
+            draw.ellipse([(cx + 12, point_y + 6), (cx + 20, point_y + 14)], fill=section_color)
+            point_wrapped = textwrap.fill(str(point), width=28)
+            draw.text((cx + 28, point_y), point_wrapped, font=font_point, fill=(210, 210, 210))
+            point_y += len(point_wrapped.split('\n')) * 22 + 8
+
+        labels = {
+            0: "Purpose:", 1: "What it covers:", 2: "Key Controls:",
+            3: "Risks Addressed:", 4: "Framework:", 5: "Tools & Methods:"
+        }
+        draw.text((cx + 10, cy + card_h - 28), labels.get(idx, "Details:"), font=font_label, fill=section_color)
+
+    # Footer
+    card_start_y_footer = card_start_y + 3 * (card_h + 20) + 15
+    draw.rectangle([(0, card_start_y_footer), (width, height)], fill=(5, 5, 15))
+    draw.rectangle([(0, card_start_y_footer), (width, card_start_y_footer + 3)], fill=accent)
+    draw.text((40, card_start_y_footer + 15), "Aurobinda Ojha", font=font_author, fill=accent)
+    draw.text((40, card_start_y_footer + 42), "Independent Researcher | Cybersecurity & Agentic AI", font=font_small, fill=(150, 150, 150))
+    draw.text((40, card_start_y_footer + 65), "linkedin.com/in/aurobindaojha", font=font_small, fill=(100, 100, 100))
+    date_str = datetime.now().strftime("%B %d, %Y")
+    draw.text((width - 220, card_start_y_footer + 15), "#AgenticAI", font=font_small, fill=accent)
+    draw.text((width - 220, card_start_y_footer + 38), "#Cybersecurity", font=font_small, fill=accent)
+    draw.text((width - 220, card_start_y_footer + 61), date_str, font=font_small, fill=(100, 100, 100))
+
+    return image
+
+def create_animated_gif(post_content, infographic_data):
+    print(f"[{datetime.now()}] Creating animated GIF infographic...")
+
+    width, height = 1080, 1350
     seed = get_content_seed(post_content)
     theme = COLOR_THEMES[seed % len(COLOR_THEMES)]
 
     bg = theme["bg"]
     accent = theme["accent"]
     card_bg = theme["card"]
-
-    image = Image.new("RGB", (width, height), bg)
-    draw = ImageDraw.Draw(image)
-
-    # Draw subtle grid pattern
-    for x in range(0, width, 40):
-        draw.line([(x, 0), (x, height)], fill=(20, 20, 35), width=1)
-    for y in range(0, height, 40):
-        draw.line([(0, y), (width, y)], fill=(20, 20, 35), width=1)
 
     # Load fonts
     try:
@@ -156,102 +233,58 @@ def create_infographic(post_content, infographic_data):
         font_point = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    # ── Header ────────────────────────────────────────────────────────────────
-    # Author circle placeholder
-    draw.ellipse([(width//2 - 35, 20), (width//2 + 35, 90)], outline=accent, width=2)
-    draw.text((width//2 - 20, 42), "AO", font=font_author, fill=accent)
+    fonts = (font_title, font_author, font_section, font_label, font_point, font_small)
 
-    # Author name
-    draw.text((width//2 - 70, 98), "Aurobinda Ojha", font=font_author, fill=(200, 200, 200))
-    draw.text((width//2 - 55, 122), "Follow For More", font=font_small, fill=(120, 120, 120))
+    frames = []
+    durations = []
 
-    # Title
-    title = infographic_data.get("title", "AI SECURITY").upper()
-    title_wrapped = textwrap.fill(title, width=18)
-    title_lines = title_wrapped.split('\n')
-    title_y = 160
-    for line in title_lines:
-        bbox = draw.textbbox((0, 0), line, font=font_title)
-        title_w = bbox[2] - bbox[0]
-        draw.text(((width - title_w) // 2, title_y), line, font=font_title, fill=(255, 255, 255))
-        title_y += 80
+    # Frame 1 — title only (hold 1.5s)
+    f = create_frame(width, height, bg, accent, card_bg, infographic_data, fonts, 0)
+    frames.append(f)
+    durations.append(1500)
 
-    # Title underline
-    draw.rectangle([(60, title_y + 10), (width - 60, title_y + 13)], fill=accent)
+    # Frames 2-7 — each card appears one by one (hold 0.8s each)
+    for i in range(1, 7):
+        f = create_frame(width, height, bg, accent, card_bg, infographic_data, fonts, i)
+        frames.append(f)
+        durations.append(800)
 
-    # ── Cards Grid (2x3) ──────────────────────────────────────────────────────
-    sections = infographic_data.get("sections", [])[:6]
-    card_w = (width - 80) // 2 - 10
-    card_h = 270
-    card_start_y = title_y + 35
-    padding = 20
+    # Frame 8 — all cards visible (hold 3s)
+    f = create_frame(width, height, bg, accent, card_bg, infographic_data, fonts, 6)
+    frames.append(f)
+    durations.append(3000)
 
-    for idx, section in enumerate(sections):
-        col = idx % 2
-        row = idx // 2
+    # Add blinking accent border animation (3 blink frames)
+    for blink in range(3):
+        f_blink = create_frame(width, height, bg, accent, card_bg, infographic_data, fonts, 6)
+        draw_blink = ImageDraw.Draw(f_blink)
+        blink_color = accent if blink % 2 == 0 else (255, 255, 255)
+        draw_blink.rectangle([(0, 0), (width, 5)], fill=blink_color)
+        draw_blink.rectangle([(0, height-5), (width, height)], fill=blink_color)
+        frames.append(f_blink)
+        durations.append(300)
 
-        cx = 40 + col * (card_w + 20)
-        cy = card_start_y + row * (card_h + 20)
+    # Final frame — full hold (2s)
+    frames.append(create_frame(width, height, bg, accent, card_bg, infographic_data, fonts, 6))
+    durations.append(2000)
 
-        section_color = get_color(section.get("color", "cyan"))
+    # Save as GIF
+    gif_bytes = io.BytesIO()
+    frames[0].save(
+        gif_bytes,
+        format="GIF",
+        save_all=True,
+        append_images=frames[1:],
+        duration=durations,
+        loop=0,
+        optimize=True
+    )
+    gif_bytes.seek(0)
+    print(f"Animated GIF created! Frames: {len(frames)}")
+    return gif_bytes.read()
 
-        # Card background
-        draw.rectangle([(cx, cy), (cx + card_w, cy + card_h)], fill=card_bg)
-
-        # Dashed border
-        draw_dashed_rect(draw, cx, cy, cx + card_w, cy + card_h, section_color)
-
-        # Section heading background
-        draw.rectangle([(cx, cy), (cx + card_w, cy + 40)], fill=section_color)
-
-        # Section heading text
-        heading = section.get("heading", "")
-        heading_wrapped = textwrap.fill(heading, width=22)
-        draw.text((cx + 10, cy + 8), heading_wrapped, font=font_section, fill=(0, 0, 0))
-
-        # Points
-        points = section.get("points", [])
-        point_y = cy + 55
-
-        for point in points[:3]:
-            # Bullet dot
-            draw.ellipse([(cx + 12, point_y + 6), (cx + 20, point_y + 14)], fill=section_color)
-
-            # Point text
-            point_wrapped = textwrap.fill(str(point), width=28)
-            draw.text((cx + 28, point_y), point_wrapped, font=font_point, fill=(210, 210, 210))
-            point_y += len(point_wrapped.split('\n')) * 22 + 8
-
-        # Label at bottom
-        labels = {
-            0: "Purpose:", 1: "What it covers:", 2: "Key Controls:",
-            3: "Risks Addressed:", 4: "Framework:", 5: "Tools & Methods:"
-        }
-        label = labels.get(idx, "Details:")
-        draw.text((cx + 10, cy + card_h - 28), label, font=font_label, fill=section_color)
-
-    # ── Footer ────────────────────────────────────────────────────────────────
-    footer_y = card_start_y + 3 * (card_h + 20) + 15
-    draw.rectangle([(0, footer_y), (width, height)], fill=(5, 5, 15))
-    draw.rectangle([(0, footer_y), (width, footer_y + 3)], fill=accent)
-
-    draw.text((40, footer_y + 15), "Aurobinda Ojha", font=font_author, fill=accent)
-    draw.text((40, footer_y + 42), "Independent Researcher | Cybersecurity & Agentic AI", font=font_small, fill=(150, 150, 150))
-    draw.text((40, footer_y + 65), "linkedin.com/in/aurobindaojha", font=font_small, fill=(100, 100, 100))
-
-    date_str = datetime.now().strftime("%B %d, %Y")
-    draw.text((width - 220, footer_y + 15), "#AgenticAI", font=font_small, fill=accent)
-    draw.text((width - 220, footer_y + 38), "#Cybersecurity", font=font_small, fill=accent)
-    draw.text((width - 220, footer_y + 61), date_str, font=font_small, fill=(100, 100, 100))
-
-    img_bytes = io.BytesIO()
-    image.save(img_bytes, format="JPEG", quality=95)
-    img_bytes.seek(0)
-    print(f"Infographic created!")
-    return img_bytes.read()
-
-def upload_image_to_linkedin(image_data):
-    print(f"[{datetime.now()}] Uploading image to LinkedIn...")
+def upload_image_to_linkedin(image_data, content_type="image/gif"):
+    print(f"[{datetime.now()}] Uploading GIF to LinkedIn...")
 
     register_payload = {
         "registerUploadRequest": {
@@ -280,7 +313,7 @@ def upload_image_to_linkedin(image_data):
 
     upload_headers = {
         "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
-        "Content-Type": "application/octet-stream"
+        "Content-Type": content_type
     }
     upload_response = requests.put(
         upload_url,
@@ -288,11 +321,11 @@ def upload_image_to_linkedin(image_data):
         data=image_data
     )
     upload_response.raise_for_status()
-    print(f"Image uploaded successfully!")
+    print(f"GIF uploaded successfully!")
     return asset
 
 def job_post():
-    print(f"[{datetime.now()}] Generating LinkedIn infographic post about: {TOPIC}")
+    print(f"[{datetime.now()}] Generating LinkedIn animated GIF post about: {TOPIC}")
 
     content = ai_generate_post(TOPIC)
     print(f"Generated content: {content[:100]}...")
@@ -300,8 +333,8 @@ def job_post():
     infographic_data = ai_generate_infographic_data(content)
     print(f"Infographic title: {infographic_data.get('title')}")
 
-    image_bytes = create_infographic(content, infographic_data)
-    asset = upload_image_to_linkedin(image_bytes)
+    gif_data = create_animated_gif(content, infographic_data)
+    asset = upload_image_to_linkedin(gif_data, content_type="image/gif")
 
     payload = {
         "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
@@ -338,7 +371,7 @@ def job_post():
     )
     r.raise_for_status()
     post_id = r.json().get("id")
-    print(f"[{datetime.now()}] LinkedIn infographic post published! ID: {post_id}")
+    print(f"[{datetime.now()}] LinkedIn animated GIF post published! ID: {post_id}")
 
 if __name__ == "__main__":
     if RUN_MODE == "post":
