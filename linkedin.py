@@ -7,6 +7,8 @@ import hashlib
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import io
+import math
+import random
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 LINKEDIN_ACCESS_TOKEN = os.environ["LINKEDIN_ACCESS_TOKEN"]
@@ -28,14 +30,6 @@ Your style is direct, conversational and thought provoking.
 You use line breaks between thoughts. You add emojis to key points.
 Plain text only. No markdown. Short sentences. Max 150 words."""
 
-COLOR_THEMES = [
-    {"bg": (5, 5, 15), "accent": (0, 255, 200), "highlight": (0, 180, 255), "card": (10, 20, 40)},
-    {"bg": (10, 0, 20), "accent": (180, 80, 255), "highlight": (255, 50, 150), "card": (20, 5, 35)},
-    {"bg": (0, 15, 10), "accent": (50, 255, 150), "highlight": (0, 200, 100), "card": (5, 25, 15)},
-    {"bg": (20, 5, 0), "accent": (255, 150, 50), "highlight": (255, 80, 0), "card": (30, 10, 0)},
-    {"bg": (0, 10, 25), "accent": (50, 200, 255), "highlight": (0, 150, 255), "card": (0, 15, 35)},
-]
-
 def ai_generate_post(topic):
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -43,42 +37,53 @@ def ai_generate_post(topic):
             {"role": "system", "content": AGENT_PERSONA},
             {"role": "user", "content":
                 f"Write a professional LinkedIn post about a fresh angle on: {topic}\n\n"
-                f"IMPORTANT FORMAT RULES:\n"
-                f"- Write in SHORT lines with line breaks between each thought\n"
-                f"- Max 2-3 sentences per paragraph\n"
-                f"- Add relevant emojis at the start of key lines\n"
-                f"- Use simple conversational language\n"
-                f"- Start with a hook line that grabs attention\n"
-                f"- End with a question to spark discussion\n"
-                f"- Total max 150 words"}
+                f"FORMAT RULES:\n"
+                f"- SHORT lines with line breaks between thoughts\n"
+                f"- Add relevant emojis at key lines\n"
+                f"- Start with attention grabbing hook\n"
+                f"- End with a question\n"
+                f"- Max 150 words"}
         ],
         max_tokens=400,
     )
     return response.choices[0].message.content.strip()
 
-def ai_generate_infographic_data(post_content):
+def ai_generate_hacker_data(post_content):
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "user", "content":
-                f"Based on this LinkedIn post about cybersecurity/AI, create structured data for an infographic.\n"
+                f"Based on this LinkedIn post, create a hacker-style infographic structure.\n"
                 f"Post: {post_content}\n\n"
                 f"Reply with JSON only, no extra text:\n"
                 f"{{\n"
-                f"  \"title\": \"SHORT TITLE IN CAPS (max 4 words)\",\n"
-                f"  \"sections\": [\n"
+                f"  \"count\": \"10\",\n"
+                f"  \"title_line1\": \"KEY CONCEPTS IN\",\n"
+                f"  \"title_line2\": \"TOPIC NAME\",\n"
+                f"  \"subtitle\": \"Real insights. Real impact. Real knowledge.\",\n"
+                f"  \"tagline\": \"BUILT ON RESEARCH. USED BY PROFESSIONALS.\",\n"
+                f"  \"categories\": [\n"
                 f"    {{\n"
-                f"      \"heading\": \"Section Title\",\n"
-                f"      \"color\": \"one of: cyan, yellow, green, orange, pink\",\n"
-                f"      \"points\": [\"point 1 max 5 words\", \"point 2 max 5 words\", \"point 3 max 5 words\"]\n"
+                f"      \"name\": \"CATEGORY NAME\",\n"
+                f"      \"icon\": \"one of: shield, brain, lock, network, warning, gear, eye, code\",\n"
+                f"      \"items\": [\n"
+                f"        {{\n"
+                f"          \"name\": \"ITEM NAME\",\n"
+                f"          \"description\": \"Short description max 8 words\"\n"
+                f"        }}\n"
+                f"      ]\n"
                 f"    }}\n"
-                f"  ]\n"
+                f"  ],\n"
+                f"  \"mindset_title\": \"STAY SHARP.\",\n"
+                f"  \"mindset_points\": [\"Point 1 max 4 words\", \"Point 2 max 4 words\", \"Point 3 max 4 words\", \"Point 4 max 4 words\"],\n"
+                f"  \"footer_text\": \"Short powerful closing statement.\"\n"
                 f"}}\n\n"
-                f"Create exactly 6 sections that explain the post topic clearly.\n"
-                f"Make sections relevant to the post content.\n"
-                f"Each section has exactly 3 bullet points."}
+                f"Create exactly 6 categories.\n"
+                f"Each category has exactly 2-3 items.\n"
+                f"Make everything specific to the post topic.\n"
+                f"count should reflect total number of items across all categories."}
         ],
-        max_tokens=600,
+        max_tokens=1000,
     )
     raw = response.choices[0].message.content.strip()
     raw = raw.replace("```json", "").replace("```", "").strip()
@@ -87,167 +92,303 @@ def ai_generate_infographic_data(post_content):
 def get_content_seed(post_content):
     return int(hashlib.md5(post_content.encode()).hexdigest(), 16)
 
-def get_color(name):
-    colors = {
-        "cyan": (0, 255, 200),
-        "yellow": (255, 220, 0),
-        "green": (50, 255, 150),
-        "orange": (255, 150, 50),
-        "pink": (255, 100, 200),
-        "blue": (50, 200, 255),
-    }
-    return colors.get(name, (0, 255, 200))
+def draw_hex_icon(draw, cx, cy, size, color, icon_type):
+    # Draw hexagon
+    points = []
+    for i in range(6):
+        angle = math.pi / 3 * i - math.pi / 6
+        px = cx + size * math.cos(angle)
+        py = cy + size * math.sin(angle)
+        points.append((px, py))
+    draw.polygon(points, outline=color, fill=(color[0]//4, color[1]//4, color[2]//4))
 
-def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=8, width=2):
-    # Top
-    x = x0
-    while x < x1:
-        draw.line([(x, y0), (min(x+dash, x1), y0)], fill=color, width=width)
-        x += dash * 2
-    # Bottom
-    x = x0
-    while x < x1:
-        draw.line([(x, y1), (min(x+dash, x1), y1)], fill=color, width=width)
-        x += dash * 2
-    # Left
-    y = y0
-    while y < y1:
-        draw.line([(x0, y), (x0, min(y+dash, y1))], fill=color, width=width)
-        y += dash * 2
-    # Right
-    y = y0
-    while y < y1:
-        draw.line([(x1, y), (x1, min(y+dash, y1))], fill=color, width=width)
-        y += dash * 2
+    # Draw simple icon inside
+    if icon_type == "shield":
+        draw.polygon([(cx, cy-8), (cx+7, cy-4), (cx+7, cy+4), (cx, cy+9), (cx-7, cy+4), (cx-7, cy-4)], outline=color)
+    elif icon_type == "brain":
+        draw.ellipse([(cx-7, cy-7), (cx+7, cy+7)], outline=color)
+        draw.line([(cx, cy-7), (cx, cy+7)], fill=color, width=1)
+    elif icon_type == "lock":
+        draw.rectangle([(cx-5, cy-2), (cx+5, cy+7)], outline=color)
+        draw.arc([(cx-5, cy-8), (cx+5, cy+2)], 180, 0, fill=color)
+    elif icon_type == "network":
+        draw.ellipse([(cx-2, cy-2), (cx+2, cy+2)], fill=color)
+        for angle in [0, 72, 144, 216, 288]:
+            rad = math.radians(angle)
+            ex = cx + 8*math.cos(rad)
+            ey = cy + 8*math.sin(rad)
+            draw.line([(cx, cy), (int(ex), int(ey))], fill=color, width=1)
+            draw.ellipse([(int(ex)-2, int(ey)-2), (int(ex)+2, int(ey)+2)], fill=color)
+    elif icon_type == "warning":
+        draw.polygon([(cx, cy-9), (cx+8, cy+6), (cx-8, cy+6)], outline=color)
+        draw.text((cx-2, cy-3), "!", fill=color)
+    elif icon_type == "gear":
+        draw.ellipse([(cx-6, cy-6), (cx+6, cy+6)], outline=color)
+        for angle in range(0, 360, 45):
+            rad = math.radians(angle)
+            draw.line([(cx+6*math.cos(rad), cy+6*math.sin(rad)),
+                       (cx+9*math.cos(rad), cy+9*math.sin(rad))], fill=color, width=2)
+    elif icon_type == "eye":
+        draw.arc([(cx-8, cy-4), (cx+8, cy+4)], 0, 180, fill=color)
+        draw.arc([(cx-8, cy-4), (cx+8, cy+4)], 180, 360, fill=color)
+        draw.ellipse([(cx-3, cy-3), (cx+3, cy+3)], fill=color)
+    elif icon_type == "code":
+        draw.text((cx-8, cy-6), "</>", fill=color)
 
-def create_infographic(post_content, infographic_data):
-    print(f"[{datetime.now()}] Creating infographic image...")
+def draw_grid_pattern(draw, width, height, color):
+    for x in range(0, width, 50):
+        draw.line([(x, 0), (x, height)], fill=color, width=1)
+    for y in range(0, height, 50):
+        draw.line([(0, y), (width, y)], fill=color, width=1)
 
-    width, height = 1080, 1350  # Portrait for LinkedIn
+def draw_circuit_lines(draw, width, height, color, seed):
+    rng = random.Random(seed)
+    for _ in range(30):
+        x = rng.randint(0, width)
+        y = rng.randint(0, height)
+        length = rng.randint(30, 150)
+        direction = rng.choice(['h', 'v'])
+        if direction == 'h':
+            draw.line([(x, y), (x+length, y)], fill=color, width=1)
+            draw.ellipse([(x+length-2, y-2), (x+length+2, y+2)], fill=color)
+        else:
+            draw.line([(x, y), (x, y+length)], fill=color, width=1)
+            draw.ellipse([(x-2, y+length-2), (x+2, y+length+2)], fill=color)
+
+def create_hacker_image(post_content, data):
+    print(f"[{datetime.now()}] Creating hacker-style image...")
+
+    width, height = 1080, 1440
     seed = get_content_seed(post_content)
-    theme = COLOR_THEMES[seed % len(COLOR_THEMES)]
 
-    bg = theme["bg"]
-    accent = theme["accent"]
-    card_bg = theme["card"]
-
-    image = Image.new("RGB", (width, height), bg)
+    # Very dark background
+    image = Image.new("RGB", (width, height), (8, 8, 12))
     draw = ImageDraw.Draw(image)
 
-    # Draw subtle grid pattern
-    for x in range(0, width, 40):
-        draw.line([(x, 0), (x, height)], fill=(20, 20, 35), width=1)
-    for y in range(0, height, 40):
-        draw.line([(0, y), (width, y)], fill=(20, 20, 35), width=1)
+    # Grid pattern
+    draw_grid_pattern(draw, width, height, (18, 18, 25))
+
+    # Circuit lines
+    draw_circuit_lines(draw, width, height, (20, 40, 20), seed)
 
     # Load fonts
     try:
-        font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
-        font_author = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
-        font_section = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
-        font_label = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
-        font_point = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 17)
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
+        font_count = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 120)
+        font_title1 = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
+        font_title2 = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
+        font_subtitle = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
+        font_tagline = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
+        font_cat = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+        font_item = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
+        font_desc = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 15)
+        font_mindset = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+        font_footer = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 15)
     except:
-        font_title = ImageFont.load_default()
-        font_author = ImageFont.load_default()
-        font_section = ImageFont.load_default()
-        font_label = ImageFont.load_default()
-        font_point = ImageFont.load_default()
+        font_count = ImageFont.load_default()
+        font_title1 = ImageFont.load_default()
+        font_title2 = ImageFont.load_default()
+        font_subtitle = ImageFont.load_default()
+        font_tagline = ImageFont.load_default()
+        font_cat = ImageFont.load_default()
+        font_item = ImageFont.load_default()
+        font_desc = ImageFont.load_default()
+        font_mindset = ImageFont.load_default()
+        font_footer = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    # ── Header ────────────────────────────────────────────────────────────────
-    # Author circle placeholder
-    draw.ellipse([(width//2 - 35, 20), (width//2 + 35, 90)], outline=accent, width=2)
-    draw.text((width//2 - 20, 42), "AO", font=font_author, fill=accent)
+    # Colors
+    RED = (200, 30, 30)
+    RED_BRIGHT = (240, 60, 60)
+    WHITE = (240, 240, 240)
+    GRAY = (150, 150, 160)
+    DARK_GRAY = (40, 40, 50)
+    GREEN = (0, 200, 100)
+    CYAN = (0, 200, 220)
+    ORANGE = (220, 140, 0)
+    YELLOW = (220, 200, 0)
 
-    # Author name
-    draw.text((width//2 - 70, 98), "Aurobinda Ojha", font=font_author, fill=(200, 200, 200))
-    draw.text((width//2 - 55, 122), "Follow For More", font=font_small, fill=(120, 120, 120))
+    CAT_COLORS = [CYAN, GREEN, ORANGE, YELLOW, RED_BRIGHT, (180, 100, 220)]
+    ICON_COLORS = [CYAN, GREEN, ORANGE, YELLOW, RED_BRIGHT, (180, 100, 220)]
 
-    # Title
-    title = infographic_data.get("title", "AI SECURITY").upper()
-    title_wrapped = textwrap.fill(title, width=18)
-    title_lines = title_wrapped.split('\n')
-    title_y = 160
-    for line in title_lines:
-        bbox = draw.textbbox((0, 0), line, font=font_title)
-        title_w = bbox[2] - bbox[0]
-        draw.text(((width - title_w) // 2, title_y), line, font=font_title, fill=(255, 255, 255))
-        title_y += 80
+    # ── Header area ───────────────────────────────────────────────────────────
+    # Red glow effect
+    for i in range(5):
+        alpha = 30 - i*5
+        draw.rectangle([(0, 0), (width//2, 250)],
+                       fill=(20+i*2, 5, 5))
 
-    # Title underline
-    draw.rectangle([(60, title_y + 10), (width - 60, title_y + 13)], fill=accent)
+    # Silhouette placeholder — dark red gradient area
+    draw.ellipse([(-50, -50), (350, 350)], fill=(25, 5, 5))
+    draw.ellipse([(20, 20), (280, 280)], fill=(35, 8, 8))
+    draw.text((60, 80), "◈", font=font_count, fill=(60, 15, 15))
 
-    # ── Cards Grid (2x3) ──────────────────────────────────────────────────────
-    sections = infographic_data.get("sections", [])[:6]
-    card_w = (width - 80) // 2 - 10
-    card_h = 270
-    card_start_y = title_y + 35
-    padding = 20
+    # Count number
+    count = data.get("count", "10")
+    draw.text((width//2 - 20, 20), count, font=font_count, fill=RED)
 
-    for idx, section in enumerate(sections):
-        col = idx % 2
+    # Title lines
+    title1 = data.get("title_line1", "KEY CONCEPTS IN")
+    title2 = data.get("title_line2", "CYBERSECURITY")
+
+    bbox = draw.textbbox((0,0), title1, font=font_title1)
+    t1w = bbox[2]-bbox[0]
+    draw.text((width - t1w - 30, 20), title1, font=font_title1, fill=WHITE)
+
+    bbox = draw.textbbox((0,0), title2, font=font_title2)
+    t2w = bbox[2]-bbox[0]
+    draw.text((width - t2w - 20, 60), title2, font=font_title2, fill=RED)
+
+    # Subtitle
+    subtitle = data.get("subtitle", "")
+    parts = subtitle.split(".")
+    sub_y = 150
+    for part in parts[:3]:
+        part = part.strip()
+        if not part:
+            continue
+        color = RED_BRIGHT if parts.index(part) == len(parts)-2 else WHITE
+        draw.text((width//2 + 20, sub_y), part + ".", font=font_subtitle, fill=color)
+        sub_y += 30
+
+    # Tagline box
+    tagline = data.get("tagline", "")
+    tag_y = 195
+    draw.rectangle([(width//2 + 10, tag_y), (width-20, tag_y+35)],
+                   fill=(20, 20, 28), outline=GRAY, width=1)
+    draw.text((width//2 + 20, tag_y + 8), tagline, font=font_tagline, fill=WHITE)
+
+    # Divider
+    draw.line([(20, 245), (width-20, 245)], fill=DARK_GRAY, width=1)
+
+    # ── Categories grid (3x2) ──────────────────────────────────────────────────
+    categories = data.get("categories", [])[:6]
+    mindset_w = 240
+    cat_area_w = width - mindset_w - 30
+    cat_w = (cat_area_w - 40) // 3 - 5
+    cat_h = 280
+    cat_start_y = 255
+    cat_start_x = 15
+
+    for idx, cat in enumerate(categories):
+        col = idx % 3
         row = idx // 2
+        cx_pos = cat_start_x + col * (cat_w + 8)
+        cy_pos = cat_start_y + row * (cat_h + 8)
 
-        cx = 40 + col * (card_w + 20)
-        cy = card_start_y + row * (card_h + 20)
+        cat_color = CAT_COLORS[idx % len(CAT_COLORS)]
+        icon_type = cat.get("icon", "shield")
 
-        section_color = get_color(section.get("color", "cyan"))
+        # Category box
+        draw.rectangle([(cx_pos, cy_pos), (cx_pos+cat_w, cy_pos+cat_h)],
+                       fill=(12, 12, 18), outline=(40, 40, 55), width=1)
 
-        # Card background
-        draw.rectangle([(cx, cy), (cx + card_w, cy + card_h)], fill=card_bg)
+        # Category header
+        draw.rectangle([(cx_pos, cy_pos), (cx_pos+cat_w, cy_pos+28)],
+                       fill=(18, 18, 28))
 
-        # Dashed border
-        draw_dashed_rect(draw, cx, cy, cx + card_w, cy + card_h, section_color)
+        # Hex icon
+        draw_hex_icon(draw, cx_pos+18, cy_pos+14, 10, cat_color, icon_type)
 
-        # Section heading background
-        draw.rectangle([(cx, cy), (cx + card_w, cy + 40)], fill=section_color)
+        # Category name
+        cat_name = cat.get("name", "")
+        cat_wrapped = textwrap.fill(cat_name, width=16)
+        draw.text((cx_pos+35, cy_pos+5), cat_wrapped, font=font_cat, fill=cat_color)
 
-        # Section heading text
-        heading = section.get("heading", "")
-        heading_wrapped = textwrap.fill(heading, width=22)
-        draw.text((cx + 10, cy + 8), heading_wrapped, font=font_section, fill=(0, 0, 0))
+        # Divider
+        draw.line([(cx_pos+5, cy_pos+30), (cx_pos+cat_w-5, cy_pos+30)],
+                  fill=(40, 40, 55), width=1)
 
-        # Points
-        points = section.get("points", [])
-        point_y = cy + 55
+        # Items
+        items = cat.get("items", [])[:3]
+        item_y = cy_pos + 38
+        for item in items:
+            name = item.get("name", "")
+            desc = item.get("description", "")
 
-        for point in points[:3]:
-            # Bullet dot
-            draw.ellipse([(cx + 12, point_y + 6), (cx + 20, point_y + 14)], fill=section_color)
+            # Item dot
+            draw.ellipse([(cx_pos+8, item_y+6), (cx_pos+14, item_y+12)], fill=cat_color)
 
-            # Point text
-            point_wrapped = textwrap.fill(str(point), width=28)
-            draw.text((cx + 28, point_y), point_wrapped, font=font_point, fill=(210, 210, 210))
-            point_y += len(point_wrapped.split('\n')) * 22 + 8
+            # Item name
+            draw.text((cx_pos+20, item_y), name, font=font_item, fill=WHITE)
 
-        # Label at bottom
-        labels = {
-            0: "Purpose:", 1: "What it covers:", 2: "Key Controls:",
-            3: "Risks Addressed:", 4: "Framework:", 5: "Tools & Methods:"
-        }
-        label = labels.get(idx, "Details:")
-        draw.text((cx + 10, cy + card_h - 28), label, font=font_label, fill=section_color)
+            # Description
+            desc_wrapped = textwrap.fill(desc, width=20)
+            draw.text((cx_pos+20, item_y+20), desc_wrapped, font=font_desc, fill=GRAY)
+
+            item_y += 20 + len(desc_wrapped.split('\n')) * 16 + 15
+
+    # ── Mindset panel (right side) ────────────────────────────────────────────
+    mx = cat_area_w + 25
+    my = cat_start_y
+    mw = mindset_w - 10
+    mh = cat_h * 2 + 8
+
+    draw.rectangle([(mx, my), (mx+mw, my+mh)],
+                   fill=(12, 12, 18), outline=(40, 40, 55), width=1)
+
+    # Mindset header
+    draw.rectangle([(mx, my), (mx+mw, my+60)], fill=(18, 18, 28))
+    mindset_title = data.get("mindset_title", "STAY SHARP.")
+    lines = mindset_title.split('\n')
+    mt_y = my + 8
+    for line in lines:
+        draw.text((mx+10, mt_y), line, font=font_mindset, fill=RED_BRIGHT)
+        mt_y += 24
+
+    draw.text((mx+10, mt_y), "THINK LIKE THEM.", font=font_mindset, fill=WHITE)
+
+    # Mindset icons and points
+    mindset_points = data.get("mindset_points", [])[:4]
+    mp_y = my + 80
+    mp_icons = ["▶", "◈", "◉", "◆"]
+    for i, point in enumerate(mindset_points):
+        draw.text((mx+10, mp_y), mp_icons[i], font=font_item, fill=CYAN)
+        draw.text((mx+30, mp_y), point, font=font_desc, fill=WHITE)
+        mp_y += 35
+
+    # Mindset tagline
+    draw.line([(mx+10, mp_y+10), (mx+mw-10, mp_y+10)], fill=RED, width=2)
+    draw.text((mx+10, mp_y+18), "THAT'S THE", font=font_cat, fill=WHITE)
+    draw.text((mx+10, mp_y+38), "MINDSET.", font=font_mindset, fill=RED_BRIGHT)
 
     # ── Footer ────────────────────────────────────────────────────────────────
-    footer_y = card_start_y + 3 * (card_h + 20) + 15
-    draw.rectangle([(0, footer_y), (width, height)], fill=(5, 5, 15))
-    draw.rectangle([(0, footer_y), (width, footer_y + 3)], fill=accent)
+    footer_y = cat_start_y + 2 * (cat_h + 8) + 15
 
-    draw.text((40, footer_y + 15), "Aurobinda Ojha", font=font_author, fill=accent)
-    draw.text((40, footer_y + 42), "Independent Researcher | Cybersecurity & Agentic AI", font=font_small, fill=(150, 150, 150))
-    draw.text((40, footer_y + 65), "linkedin.com/in/aurobindaojha", font=font_small, fill=(100, 100, 100))
+    # Footer background
+    draw.rectangle([(0, footer_y), (width, height)], fill=(10, 5, 5))
+    draw.line([(0, footer_y), (width, footer_y)], fill=RED, width=3)
 
+    # Brand
+    draw.text((25, footer_y+15), "AURO", font=font_title1, fill=WHITE)
+    draw.text((25, footer_y+50), "007", font=font_title2, fill=RED)
+
+    # Footer text
+    footer_text = data.get("footer_text", "KNOWLEDGE IS THE BEST WEAPON.")
+    parts = footer_text.split(".")
+    ft_x = 180
+    for i, part in enumerate(parts):
+        part = part.strip()
+        if not part:
+            continue
+        color = RED_BRIGHT if i == len([p for p in parts if p.strip()])-1 else WHITE
+        draw.text((ft_x, footer_y+35), part + ("." if i < len(parts)-1 else ""),
+                  font=font_footer, fill=color)
+        ft_x += draw.textbbox((0,0), part+".", font=font_footer)[2] + 5
+
+    # Social links
     date_str = datetime.now().strftime("%B %d, %Y")
-    draw.text((width - 220, footer_y + 15), "#AgenticAI", font=font_small, fill=accent)
-    draw.text((width - 220, footer_y + 38), "#Cybersecurity", font=font_small, fill=accent)
-    draw.text((width - 220, footer_y + 61), date_str, font=font_small, fill=(100, 100, 100))
+    draw.text((25, footer_y+100),
+              f"aurobindaojha  |  Cybersecurity & Agentic AI  |  {date_str}",
+              font=font_small, fill=GRAY)
+    draw.text((25, footer_y+122),
+              "#AgenticAI  #Cybersecurity  #AIResearch",
+              font=font_small, fill=(80, 80, 90))
 
     img_bytes = io.BytesIO()
     image.save(img_bytes, format="JPEG", quality=95)
     img_bytes.seek(0)
-    print(f"Infographic created!")
+    print(f"Hacker image created!")
     return img_bytes.read()
 
 def upload_image_to_linkedin(image_data):
@@ -292,15 +433,15 @@ def upload_image_to_linkedin(image_data):
     return asset
 
 def job_post():
-    print(f"[{datetime.now()}] Generating LinkedIn infographic post about: {TOPIC}")
+    print(f"[{datetime.now()}] Generating LinkedIn hacker post about: {TOPIC}")
 
     content = ai_generate_post(TOPIC)
     print(f"Generated content: {content[:100]}...")
 
-    infographic_data = ai_generate_infographic_data(content)
-    print(f"Infographic title: {infographic_data.get('title')}")
+    data = ai_generate_hacker_data(content)
+    print(f"Title: {data.get('title_line2')}")
 
-    image_bytes = create_infographic(content, infographic_data)
+    image_bytes = create_hacker_image(content, data)
     asset = upload_image_to_linkedin(image_bytes)
 
     payload = {
@@ -316,11 +457,11 @@ def job_post():
                     {
                         "status": "READY",
                         "description": {
-                            "text": infographic_data.get("title", TOPIC)
+                            "text": data.get("title_line2", TOPIC)
                         },
                         "media": asset,
                         "title": {
-                            "text": infographic_data.get("title", TOPIC)[:100]
+                            "text": data.get("title_line2", TOPIC)[:100]
                         }
                     }
                 ]
@@ -338,7 +479,7 @@ def job_post():
     )
     r.raise_for_status()
     post_id = r.json().get("id")
-    print(f"[{datetime.now()}] LinkedIn infographic post published! ID: {post_id}")
+    print(f"[{datetime.now()}] LinkedIn hacker post published! ID: {post_id}")
 
 if __name__ == "__main__":
     if RUN_MODE == "post":
