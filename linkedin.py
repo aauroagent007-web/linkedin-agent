@@ -93,7 +93,6 @@ def get_content_seed(post_content):
     return int(hashlib.md5(post_content.encode()).hexdigest(), 16)
 
 def draw_hex_icon(draw, cx, cy, size, color, icon_type):
-    # Draw hexagon
     points = []
     for i in range(6):
         angle = math.pi / 3 * i - math.pi / 6
@@ -101,8 +100,6 @@ def draw_hex_icon(draw, cx, cy, size, color, icon_type):
         py = cy + size * math.sin(angle)
         points.append((px, py))
     draw.polygon(points, outline=color, fill=(color[0]//4, color[1]//4, color[2]//4))
-
-    # Draw simple icon inside
     if icon_type == "shield":
         draw.polygon([(cx, cy-8), (cx+7, cy-4), (cx+7, cy+4), (cx, cy+9), (cx-7, cy+4), (cx-7, cy-4)], outline=color)
     elif icon_type == "brain":
@@ -121,13 +118,12 @@ def draw_hex_icon(draw, cx, cy, size, color, icon_type):
             draw.ellipse([(int(ex)-2, int(ey)-2), (int(ex)+2, int(ey)+2)], fill=color)
     elif icon_type == "warning":
         draw.polygon([(cx, cy-9), (cx+8, cy+6), (cx-8, cy+6)], outline=color)
-        draw.text((cx-2, cy-3), "!", fill=color)
     elif icon_type == "gear":
         draw.ellipse([(cx-6, cy-6), (cx+6, cy+6)], outline=color)
         for angle in range(0, 360, 45):
             rad = math.radians(angle)
-            draw.line([(cx+6*math.cos(rad), cy+6*math.sin(rad)),
-                       (cx+9*math.cos(rad), cy+9*math.sin(rad))], fill=color, width=2)
+            draw.line([(int(cx+6*math.cos(rad)), int(cy+6*math.sin(rad))),
+                       (int(cx+9*math.cos(rad)), int(cy+9*math.sin(rad)))], fill=color, width=2)
     elif icon_type == "eye":
         draw.arc([(cx-8, cy-4), (cx+8, cy+4)], 0, 180, fill=color)
         draw.arc([(cx-8, cy-4), (cx+8, cy+4)], 180, 360, fill=color)
@@ -161,17 +157,12 @@ def create_hacker_image(post_content, data):
     width, height = 1080, 1440
     seed = get_content_seed(post_content)
 
-    # Very dark background
     image = Image.new("RGB", (width, height), (8, 8, 12))
     draw = ImageDraw.Draw(image)
 
-    # Grid pattern
     draw_grid_pattern(draw, width, height, (18, 18, 25))
-
-    # Circuit lines
     draw_circuit_lines(draw, width, height, (20, 40, 20), seed)
 
-    # Load fonts
     try:
         font_count = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 120)
         font_title1 = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
@@ -197,7 +188,6 @@ def create_hacker_image(post_content, data):
         font_footer = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    # Colors
     RED = (200, 30, 30)
     RED_BRIGHT = (240, 60, 60)
     WHITE = (240, 240, 240)
@@ -207,27 +197,16 @@ def create_hacker_image(post_content, data):
     CYAN = (0, 200, 220)
     ORANGE = (220, 140, 0)
     YELLOW = (220, 200, 0)
-
     CAT_COLORS = [CYAN, GREEN, ORANGE, YELLOW, RED_BRIGHT, (180, 100, 220)]
-    ICON_COLORS = [CYAN, GREEN, ORANGE, YELLOW, RED_BRIGHT, (180, 100, 220)]
 
-    # ── Header area ───────────────────────────────────────────────────────────
-    # Red glow effect
-    for i in range(5):
-        alpha = 30 - i*5
-        draw.rectangle([(0, 0), (width//2, 250)],
-                       fill=(20+i*2, 5, 5))
-
-    # Silhouette placeholder — dark red gradient area
+    # ── Header ────────────────────────────────────────────────────────────────
     draw.ellipse([(-50, -50), (350, 350)], fill=(25, 5, 5))
     draw.ellipse([(20, 20), (280, 280)], fill=(35, 8, 8))
     draw.text((60, 80), "◈", font=font_count, fill=(60, 15, 15))
 
-    # Count number
     count = data.get("count", "10")
     draw.text((width//2 - 20, 20), count, font=font_count, fill=RED)
 
-    # Title lines
     title1 = data.get("title_line1", "KEY CONCEPTS IN")
     title2 = data.get("title_line2", "CYBERSECURITY")
 
@@ -241,13 +220,10 @@ def create_hacker_image(post_content, data):
 
     # Subtitle
     subtitle = data.get("subtitle", "")
-    parts = subtitle.split(".")
+    parts = [p.strip() for p in subtitle.split(".") if p.strip()]
     sub_y = 150
-    for part in parts[:3]:
-        part = part.strip()
-        if not part:
-            continue
-        color = RED_BRIGHT if parts.index(part) == len(parts)-2 else WHITE
+    for i, part in enumerate(parts[:3]):
+        color = RED_BRIGHT if i == len(parts[:3]) - 1 else WHITE
         draw.text((width//2 + 20, sub_y), part + ".", font=font_subtitle, fill=color)
         sub_y += 30
 
@@ -258,10 +234,9 @@ def create_hacker_image(post_content, data):
                    fill=(20, 20, 28), outline=GRAY, width=1)
     draw.text((width//2 + 20, tag_y + 8), tagline, font=font_tagline, fill=WHITE)
 
-    # Divider
     draw.line([(20, 245), (width-20, 245)], fill=DARK_GRAY, width=1)
 
-    # ── Categories grid (3x2) ──────────────────────────────────────────────────
+    # ── Categories grid ───────────────────────────────────────────────────────
     categories = data.get("categories", [])[:6]
     mindset_w = 240
     cat_area_w = width - mindset_w - 30
@@ -279,46 +254,32 @@ def create_hacker_image(post_content, data):
         cat_color = CAT_COLORS[idx % len(CAT_COLORS)]
         icon_type = cat.get("icon", "shield")
 
-        # Category box
         draw.rectangle([(cx_pos, cy_pos), (cx_pos+cat_w, cy_pos+cat_h)],
                        fill=(12, 12, 18), outline=(40, 40, 55), width=1)
-
-        # Category header
         draw.rectangle([(cx_pos, cy_pos), (cx_pos+cat_w, cy_pos+28)],
                        fill=(18, 18, 28))
 
-        # Hex icon
         draw_hex_icon(draw, cx_pos+18, cy_pos+14, 10, cat_color, icon_type)
 
-        # Category name
         cat_name = cat.get("name", "")
         cat_wrapped = textwrap.fill(cat_name, width=16)
         draw.text((cx_pos+35, cy_pos+5), cat_wrapped, font=font_cat, fill=cat_color)
 
-        # Divider
         draw.line([(cx_pos+5, cy_pos+30), (cx_pos+cat_w-5, cy_pos+30)],
                   fill=(40, 40, 55), width=1)
 
-        # Items
         items = cat.get("items", [])[:3]
         item_y = cy_pos + 38
         for item in items:
             name = item.get("name", "")
             desc = item.get("description", "")
-
-            # Item dot
             draw.ellipse([(cx_pos+8, item_y+6), (cx_pos+14, item_y+12)], fill=cat_color)
-
-            # Item name
             draw.text((cx_pos+20, item_y), name, font=font_item, fill=WHITE)
-
-            # Description
             desc_wrapped = textwrap.fill(desc, width=20)
             draw.text((cx_pos+20, item_y+20), desc_wrapped, font=font_desc, fill=GRAY)
-
             item_y += 20 + len(desc_wrapped.split('\n')) * 16 + 15
 
-    # ── Mindset panel (right side) ────────────────────────────────────────────
+    # ── Mindset panel ─────────────────────────────────────────────────────────
     mx = cat_area_w + 25
     my = cat_start_y
     mw = mindset_w - 10
@@ -326,19 +287,12 @@ def create_hacker_image(post_content, data):
 
     draw.rectangle([(mx, my), (mx+mw, my+mh)],
                    fill=(12, 12, 18), outline=(40, 40, 55), width=1)
-
-    # Mindset header
     draw.rectangle([(mx, my), (mx+mw, my+60)], fill=(18, 18, 28))
+
     mindset_title = data.get("mindset_title", "STAY SHARP.")
-    lines = mindset_title.split('\n')
-    mt_y = my + 8
-    for line in lines:
-        draw.text((mx+10, mt_y), line, font=font_mindset, fill=RED_BRIGHT)
-        mt_y += 24
+    draw.text((mx+10, my+8), mindset_title, font=font_mindset, fill=RED_BRIGHT)
+    draw.text((mx+10, my+32), "THINK LIKE THEM.", font=font_mindset, fill=WHITE)
 
-    draw.text((mx+10, mt_y), "THINK LIKE THEM.", font=font_mindset, fill=WHITE)
-
-    # Mindset icons and points
     mindset_points = data.get("mindset_points", [])[:4]
     mp_y = my + 80
     mp_icons = ["▶", "◈", "◉", "◆"]
@@ -347,36 +301,27 @@ def create_hacker_image(post_content, data):
         draw.text((mx+30, mp_y), point, font=font_desc, fill=WHITE)
         mp_y += 35
 
-    # Mindset tagline
     draw.line([(mx+10, mp_y+10), (mx+mw-10, mp_y+10)], fill=RED, width=2)
     draw.text((mx+10, mp_y+18), "THAT'S THE", font=font_cat, fill=WHITE)
     draw.text((mx+10, mp_y+38), "MINDSET.", font=font_mindset, fill=RED_BRIGHT)
 
     # ── Footer ────────────────────────────────────────────────────────────────
     footer_y = cat_start_y + 2 * (cat_h + 8) + 15
-
-    # Footer background
     draw.rectangle([(0, footer_y), (width, height)], fill=(10, 5, 5))
     draw.line([(0, footer_y), (width, footer_y)], fill=RED, width=3)
 
-    # Brand
     draw.text((25, footer_y+15), "AURO", font=font_title1, fill=WHITE)
     draw.text((25, footer_y+50), "007", font=font_title2, fill=RED)
 
-    # Footer text
     footer_text = data.get("footer_text", "KNOWLEDGE IS THE BEST WEAPON.")
-    parts = footer_text.split(".")
+    footer_parts = [p.strip() for p in footer_text.split(".") if p.strip()]
     ft_x = 180
-    for i, part in enumerate(parts):
-        part = part.strip()
-        if not part:
-            continue
-        color = RED_BRIGHT if i == len([p for p in parts if p.strip()])-1 else WHITE
-        draw.text((ft_x, footer_y+35), part + ("." if i < len(parts)-1 else ""),
-                  font=font_footer, fill=color)
-        ft_x += draw.textbbox((0,0), part+".", font=font_footer)[2] + 5
+    for i, part in enumerate(footer_parts):
+        color = RED_BRIGHT if i == len(footer_parts)-1 else WHITE
+        text_with_dot = part + "."
+        draw.text((ft_x, footer_y+35), text_with_dot, font=font_footer, fill=color)
+        ft_x += draw.textbbox((0,0), text_with_dot, font=font_footer)[2] + 5
 
-    # Social links
     date_str = datetime.now().strftime("%B %d, %Y")
     draw.text((25, footer_y+100),
               f"aurobindaojha  |  Cybersecurity & Agentic AI  |  {date_str}",
