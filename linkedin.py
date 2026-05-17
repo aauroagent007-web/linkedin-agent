@@ -7,8 +7,6 @@ import hashlib
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import io
-import math
-import random
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 LINKEDIN_ACCESS_TOKEN = os.environ["LINKEDIN_ACCESS_TOKEN"]
@@ -30,6 +28,14 @@ Your style is direct, conversational and thought provoking.
 You use line breaks between thoughts. You add emojis to key points.
 Plain text only. No markdown. Short sentences. Max 150 words."""
 
+COLOR_THEMES = [
+    {"bg": (5, 5, 15), "accent": (0, 255, 200), "highlight": (0, 180, 255), "card": (10, 20, 40)},
+    {"bg": (10, 0, 20), "accent": (180, 80, 255), "highlight": (255, 50, 150), "card": (20, 5, 35)},
+    {"bg": (0, 15, 10), "accent": (50, 255, 150), "highlight": (0, 200, 100), "card": (5, 25, 15)},
+    {"bg": (20, 5, 0), "accent": (255, 150, 50), "highlight": (255, 80, 0), "card": (30, 10, 0)},
+    {"bg": (0, 10, 25), "accent": (50, 200, 255), "highlight": (0, 150, 255), "card": (0, 15, 35)},
+]
+
 def ai_generate_post(topic):
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -37,44 +43,42 @@ def ai_generate_post(topic):
             {"role": "system", "content": AGENT_PERSONA},
             {"role": "user", "content":
                 f"Write a professional LinkedIn post about a fresh angle on: {topic}\n\n"
-                f"FORMAT RULES:\n"
-                f"- SHORT lines with line breaks between thoughts\n"
-                f"- Add relevant emojis at key lines\n"
-                f"- Start with attention grabbing hook\n"
-                f"- End with a question\n"
-                f"- Max 150 words"}
+                f"IMPORTANT FORMAT RULES:\n"
+                f"- Write in SHORT lines with line breaks between each thought\n"
+                f"- Max 2-3 sentences per paragraph\n"
+                f"- Add relevant emojis at the start of key lines\n"
+                f"- Use simple conversational language\n"
+                f"- Start with a hook line that grabs attention\n"
+                f"- End with a question to spark discussion\n"
+                f"- Total max 150 words"}
         ],
         max_tokens=400,
     )
     return response.choices[0].message.content.strip()
 
-def ai_generate_chalkboard_data(post_content):
+def ai_generate_infographic_data(post_content):
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "user", "content":
-                f"Based on this LinkedIn post, create a chalkboard-style infographic structure.\n"
+                f"Based on this LinkedIn post about cybersecurity/AI, create structured data for an infographic.\n"
                 f"Post: {post_content}\n\n"
                 f"Reply with JSON only, no extra text:\n"
                 f"{{\n"
-                f"  \"title\": \"Topic: A Simple Analogy\",\n"
-                f"  \"subtitle\": \"Confused? Here is a simple breakdown\",\n"
-                f"  \"items\": [\n"
+                f"  \"title\": \"SHORT TITLE IN CAPS (max 4 words)\",\n"
+                f"  \"sections\": [\n"
                 f"    {{\n"
-                f"      \"term\": \"TERM\",\n"
-                f"      \"analogy\": \"Simple Analogy\",\n"
-                f"      \"points\": [\"point 1 max 6 words\", \"point 2 max 6 words\", \"point 3 max 6 words\"],\n"
-                f"      \"note\": \"Key insight max 6 words\",\n"
-                f"      \"note_type\": \"warning or success or info\"\n"
+                f"      \"heading\": \"Section Title\",\n"
+                f"      \"color\": \"one of: cyan, yellow, green, orange, pink\",\n"
+                f"      \"points\": [\"point 1 max 5 words\", \"point 2 max 5 words\", \"point 3 max 5 words\"]\n"
                 f"    }}\n"
-                f"  ],\n"
-                f"  \"flow\": [\"Term1 does X\", \"Term2 does Y\", \"Term3 does Z\", \"Term4 does W\"]\n"
+                f"  ]\n"
                 f"}}\n\n"
-                f"Create exactly 4 items explaining the post topic like analogies.\n"
-                f"Make analogies simple and relatable.\n"
-                f"flow has exactly 4 steps matching the 4 items."}
+                f"Create exactly 6 sections that explain the post topic clearly.\n"
+                f"Make sections relevant to the post content.\n"
+                f"Each section has exactly 3 bullet points."}
         ],
-        max_tokens=800,
+        max_tokens=600,
     )
     raw = response.choices[0].message.content.strip()
     raw = raw.replace("```json", "").replace("```", "").strip()
@@ -83,255 +87,167 @@ def ai_generate_chalkboard_data(post_content):
 def get_content_seed(post_content):
     return int(hashlib.md5(post_content.encode()).hexdigest(), 16)
 
-def draw_chalk_text(draw, x, y, text, font, color, roughness=1):
-    # Simulate chalk effect with slight offset
-    draw.text((x+roughness, y+roughness), text, font=font, fill=(*color[:3], 80))
-    draw.text((x, y), text, font=font, fill=color)
+def get_color(name):
+    colors = {
+        "cyan": (0, 255, 200),
+        "yellow": (255, 220, 0),
+        "green": (50, 255, 150),
+        "orange": (255, 150, 50),
+        "pink": (255, 100, 200),
+        "blue": (50, 200, 255),
+    }
+    return colors.get(name, (0, 255, 200))
 
-def draw_chalk_line(draw, x0, y0, x1, y1, color, width=2):
-    # Dashed chalk line
-    length = math.sqrt((x1-x0)**2 + (y1-y0)**2)
-    segments = int(length / 12)
-    if segments == 0:
-        segments = 1
-    for i in range(segments):
-        t0 = i / segments
-        t1 = min((i + 0.6) / segments, 1.0)
-        sx0 = int(x0 + t0 * (x1-x0))
-        sy0 = int(y0 + t0 * (y1-y0))
-        sx1 = int(x0 + t1 * (x1-x0))
-        sy1 = int(y0 + t1 * (y1-y0))
-        draw.line([(sx0, sy0), (sx1, sy1)], fill=color, width=width)
+def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=8, width=2):
+    # Top
+    x = x0
+    while x < x1:
+        draw.line([(x, y0), (min(x+dash, x1), y0)], fill=color, width=width)
+        x += dash * 2
+    # Bottom
+    x = x0
+    while x < x1:
+        draw.line([(x, y1), (min(x+dash, x1), y1)], fill=color, width=width)
+        x += dash * 2
+    # Left
+    y = y0
+    while y < y1:
+        draw.line([(x0, y), (x0, min(y+dash, y1))], fill=color, width=width)
+        y += dash * 2
+    # Right
+    y = y0
+    while y < y1:
+        draw.line([(x1, y), (x1, min(y+dash, y1))], fill=color, width=width)
+        y += dash * 2
 
-def draw_chalk_rect(draw, x0, y0, x1, y1, color, width=2):
-    draw_chalk_line(draw, x0, y0, x1, y0, color, width)
-    draw_chalk_line(draw, x1, y0, x1, y1, color, width)
-    draw_chalk_line(draw, x1, y1, x0, y1, color, width)
-    draw_chalk_line(draw, x0, y1, x0, y0, color, width)
+def create_infographic(post_content, infographic_data):
+    print(f"[{datetime.now()}] Creating infographic image...")
 
-def draw_arrow_down_chalk(draw, x, y, size, color):
-    draw_chalk_line(draw, x, y, x, y+size, color, 3)
-    draw.polygon([(x-10, y+size-8), (x+10, y+size-8), (x, y+size+10)], fill=color)
+    width, height = 1080, 1350  # Portrait for LinkedIn
+    seed = get_content_seed(post_content)
+    theme = COLOR_THEMES[seed % len(COLOR_THEMES)]
 
-def draw_stars(draw, width, height, color):
-    rng = random.Random(42)
-    for _ in range(8):
-        sx = rng.randint(20, width-20)
-        sy = rng.randint(20, 150)
-        draw.text((sx, sy), "★", fill=color)
+    bg = theme["bg"]
+    accent = theme["accent"]
+    card_bg = theme["card"]
 
-def draw_banner(draw, x, y, width, height, color, font, text):
-    # Draw banner ribbon shape
-    draw.polygon([
-        (x, y+15), (x+15, y), (x+width-15, y),
-        (x+width, y+15), (x+width, y+height-15),
-        (x+width-15, y+height), (x+15, y+height),
-        (x, y+height-15)
-    ], fill=color)
-    bbox = draw.textbbox((0,0), text, font=font)
-    tw = bbox[2]-bbox[0]
-    draw.text((x+(width-tw)//2, y+8), text, font=font, fill=(255,255,255))
-
-def create_chalkboard_image(post_content, data):
-    print(f"[{datetime.now()}] Creating chalkboard image...")
-
-    width, height = 1080, 1440
-
-    # Chalkboard green background
-    image = Image.new("RGB", (width, height), (45, 90, 60))
+    image = Image.new("RGB", (width, height), bg)
     draw = ImageDraw.Draw(image)
 
-    # Add texture overlay — vertical subtle lines
-    for x in range(0, width, 3):
-        alpha = random.randint(0, 15)
-        draw.line([(x, 0), (x, height)], fill=(40+alpha, 85+alpha, 55+alpha), width=1)
-
-    # Wooden frame border
-    frame = 20
-    draw.rectangle([(0, 0), (width, height)], outline=(101, 67, 33), width=frame)
-    draw.rectangle([(frame, frame), (width-frame, height-frame)],
-                   outline=(120, 80, 40), width=4)
+    # Draw subtle grid pattern
+    for x in range(0, width, 40):
+        draw.line([(x, 0), (x, height)], fill=(20, 20, 35), width=1)
+    for y in range(0, height, 40):
+        draw.line([(0, y), (width, y)], fill=(20, 20, 35), width=1)
 
     # Load fonts
     try:
-        font_banner = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 42)
-        font_subtitle = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
-        font_term = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 52)
-        font_analogy = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
-        font_point = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
-        font_note = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
-        font_flow = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
-        font_author = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
+        font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
+        font_author = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
+        font_section = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+        font_label = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
+        font_point = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 17)
         font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
     except:
-        font_banner = ImageFont.load_default()
-        font_subtitle = ImageFont.load_default()
-        font_term = ImageFont.load_default()
-        font_analogy = ImageFont.load_default()
-        font_point = ImageFont.load_default()
-        font_note = ImageFont.load_default()
-        font_flow = ImageFont.load_default()
+        font_title = ImageFont.load_default()
         font_author = ImageFont.load_default()
+        font_section = ImageFont.load_default()
+        font_label = ImageFont.load_default()
+        font_point = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    # Colors
-    WHITE = (240, 240, 240)
-    YELLOW = (255, 220, 50)
-    RED = (220, 80, 80)
-    CYAN = (80, 220, 200)
-    GREEN_LIGHT = (100, 220, 130)
-    ORANGE = (255, 160, 50)
-    PINK = (220, 100, 180)
+    # ── Header ────────────────────────────────────────────────────────────────
+    # Author circle placeholder
+    draw.ellipse([(width//2 - 35, 20), (width//2 + 35, 90)], outline=accent, width=2)
+    draw.text((width//2 - 20, 42), "AO", font=font_author, fill=accent)
 
-    ITEM_COLORS = [CYAN, YELLOW, GREEN_LIGHT, ORANGE]
-    NOTE_COLORS = {
-        "warning": (220, 80, 80),
-        "success": (100, 200, 100),
-        "info": (80, 160, 220)
-    }
-    NOTE_ICONS = {
-        "warning": "⚠",
-        "success": "✓",
-        "info": "ℹ"
-    }
+    # Author name
+    draw.text((width//2 - 70, 98), "Aurobinda Ojha", font=font_author, fill=(200, 200, 200))
+    draw.text((width//2 - 55, 122), "Follow For More", font=font_small, fill=(120, 120, 120))
 
-    # Draw stars
-    draw_stars(draw, width, height, YELLOW)
+    # Title
+    title = infographic_data.get("title", "AI SECURITY").upper()
+    title_wrapped = textwrap.fill(title, width=18)
+    title_lines = title_wrapped.split('\n')
+    title_y = 160
+    for line in title_lines:
+        bbox = draw.textbbox((0, 0), line, font=font_title)
+        title_w = bbox[2] - bbox[0]
+        draw.text(((width - title_w) // 2, title_y), line, font=font_title, fill=(255, 255, 255))
+        title_y += 80
 
-    # ── Banner title ──────────────────────────────────────────────────────────
-    title = data.get("title", "AI Concepts: A Simple Analogy")
-    parts = title.split(":")
-    banner_y = 40
-    banner_w = width - 80
+    # Title underline
+    draw.rectangle([(60, title_y + 10), (width - 60, title_y + 13)], fill=accent)
 
-    draw_banner(draw, 40, banner_y, banner_w, 65, (150, 30, 30), font_banner,
-                parts[0] if len(parts) > 1 else title)
+    # ── Cards Grid (2x3) ──────────────────────────────────────────────────────
+    sections = infographic_data.get("sections", [])[:6]
+    card_w = (width - 80) // 2 - 10
+    card_h = 270
+    card_start_y = title_y + 35
+    padding = 20
 
-    if len(parts) > 1:
-        rest = parts[1].strip()
-        bbox = draw.textbbox((0,0), rest, font=font_banner)
-        rw = bbox[2]-bbox[0]
-        draw.text(((width-rw)//2, banner_y+20), rest, font=font_banner, fill=WHITE)
+    for idx, section in enumerate(sections):
+        col = idx % 2
+        row = idx // 2
 
-    # Subtitle
-    subtitle = data.get("subtitle", "")
-    bbox = draw.textbbox((0,0), subtitle, font=font_subtitle)
-    sw = bbox[2]-bbox[0]
-    draw_chalk_text(draw, (width-sw)//2, 120, subtitle, font_subtitle, (180, 200, 180))
+        cx = 40 + col * (card_w + 20)
+        cy = card_start_y + row * (card_h + 20)
 
-    # Divider
-    draw_chalk_line(draw, 40, 155, width-40, 155, WHITE, 2)
+        section_color = get_color(section.get("color", "cyan"))
 
-    # ── Left dashed vertical line ─────────────────────────────────────────────
-    draw_chalk_line(draw, 230, 165, 230, 1200, (100, 160, 120), 2)
+        # Card background
+        draw.rectangle([(cx, cy), (cx + card_w, cy + card_h)], fill=card_bg)
 
-    # ── Items ─────────────────────────────────────────────────────────────────
-    items = data.get("items", [])[:4]
-    item_start_y = 170
-    item_gap = 240
+        # Dashed border
+        draw_dashed_rect(draw, cx, cy, cx + card_w, cy + card_h, section_color)
 
-    for idx, item in enumerate(items):
-        color = ITEM_COLORS[idx % len(ITEM_COLORS)]
-        iy = item_start_y + idx * item_gap
+        # Section heading background
+        draw.rectangle([(cx, cy), (cx + card_w, cy + 40)], fill=section_color)
 
-        # Term on left side (large)
-        term = item.get("term", "")
-        draw_chalk_text(draw, 45, iy + 20, term, font_term, WHITE)
+        # Section heading text
+        heading = section.get("heading", "")
+        heading_wrapped = textwrap.fill(heading, width=22)
+        draw.text((cx + 10, cy + 8), heading_wrapped, font=font_section, fill=(0, 0, 0))
 
-        # Equals sign
-        draw_chalk_text(draw, 45, iy + 80, "=", font_analogy, RED)
+        # Points
+        points = section.get("points", [])
+        point_y = cy + 55
 
-        # Analogy
-        analogy = item.get("analogy", "")
-        analogy_bbox = draw.textbbox((0,0), "= ", font=font_analogy)
-        draw_chalk_text(draw, 80, iy + 80, analogy, font_analogy, color)
-
-        # Underline analogy
-        analogy_w = draw.textbbox((0,0), analogy, font=font_analogy)[2]
-        draw_chalk_line(draw, 80, iy + 115, 80+analogy_w, iy + 115, color, 2)
-
-        # Bullet points
-        points = item.get("points", [])
-        py = iy + 130
         for point in points[:3]:
-            draw.ellipse([(248, py+8), (258, py+18)], fill=WHITE)
-            draw_chalk_text(draw, 268, py, point, font_point, WHITE)
-            py += 30
+            # Bullet dot
+            draw.ellipse([(cx + 12, point_y + 6), (cx + 20, point_y + 14)], fill=section_color)
 
-        # Note box
-        note = item.get("note", "")
-        note_type = item.get("note_type", "info")
-        note_color = NOTE_COLORS.get(note_type, RED)
-        note_icon = NOTE_ICONS.get(note_type, "•")
+            # Point text
+            point_wrapped = textwrap.fill(str(point), width=28)
+            draw.text((cx + 28, point_y), point_wrapped, font=font_point, fill=(210, 210, 210))
+            point_y += len(point_wrapped.split('\n')) * 22 + 8
 
-        if note:
-            note_x = 248
-            note_y = py + 5
-            note_w = width - note_x - 50
-            draw_chalk_rect(draw, note_x, note_y, note_x+note_w, note_y+32, note_color, 2)
-            draw_chalk_text(draw, note_x+8, note_y+6,
-                          f"{note_icon} {note}", font_note, note_color)
-
-        # Arrow down between items
-        if idx < len(items) - 1:
-            arrow_y = iy + item_gap - 25
-            draw_arrow_down_chalk(draw, width//2, arrow_y, 20, RED)
-
-    # ── Flow bar at bottom ────────────────────────────────────────────────────
-    flow_y = item_start_y + len(items) * item_gap + 10
-    flow_steps = data.get("flow", [])[:4]
-
-    # Flow background oval
-    draw.rounded_rectangle(
-        [(35, flow_y), (width-35, flow_y+65)],
-        radius=32,
-        fill=(30, 70, 45),
-        outline=YELLOW,
-        width=3
-    )
-
-    step_w = (width - 80) // len(flow_steps)
-    for i, step in enumerate(flow_steps):
-        sx = 40 + i * step_w + step_w//2
-        color = ITEM_COLORS[i % len(ITEM_COLORS)]
-
-        # Step text
-        bbox = draw.textbbox((0,0), step, font=font_flow)
-        sw = bbox[2]-bbox[0]
-        draw.text((sx - sw//2, flow_y+18), step, font=font_flow, fill=color)
-
-        # Arrow between steps
-        if i < len(flow_steps) - 1:
-            ax = 40 + (i+1) * step_w - 15
-            draw.text((ax, flow_y+18), "→", font=font_flow, fill=WHITE)
-
-    # ── Chalk tray decoration ─────────────────────────────────────────────────
-    tray_y = height - 90
-    draw.rectangle([(frame, tray_y), (width-frame, tray_y+8)], fill=(80, 50, 20))
-
-    # Chalk pieces
-    chalk_colors = [(240,240,240), (220,100,100), (100,180,220), (220,200,100)]
-    for ci, cc in enumerate(chalk_colors):
-        cx = 60 + ci * 80
-        draw.rectangle([(cx, tray_y+15), (cx+55, tray_y+32)], fill=cc)
+        # Label at bottom
+        labels = {
+            0: "Purpose:", 1: "What it covers:", 2: "Key Controls:",
+            3: "Risks Addressed:", 4: "Framework:", 5: "Tools & Methods:"
+        }
+        label = labels.get(idx, "Details:")
+        draw.text((cx + 10, cy + card_h - 28), label, font=font_label, fill=section_color)
 
     # ── Footer ────────────────────────────────────────────────────────────────
-    footer_y = tray_y + 40
-    footer_text = f"Follow Aurobinda Ojha  |  Cybersecurity & Agentic AI Research"
-    bbox = draw.textbbox((0,0), footer_text, font=font_author)
-    fw = bbox[2]-bbox[0]
-    draw.text(((width-fw)//2, footer_y), footer_text, font=font_author, fill=(180, 180, 180))
+    footer_y = card_start_y + 3 * (card_h + 20) + 15
+    draw.rectangle([(0, footer_y), (width, height)], fill=(5, 5, 15))
+    draw.rectangle([(0, footer_y), (width, footer_y + 3)], fill=accent)
+
+    draw.text((40, footer_y + 15), "Aurobinda Ojha", font=font_author, fill=accent)
+    draw.text((40, footer_y + 42), "Independent Researcher | Cybersecurity & Agentic AI", font=font_small, fill=(150, 150, 150))
+    draw.text((40, footer_y + 65), "linkedin.com/in/aurobindaojha", font=font_small, fill=(100, 100, 100))
 
     date_str = datetime.now().strftime("%B %d, %Y")
-    bbox = draw.textbbox((0,0), f"#AgenticAI  #Cybersecurity  |  {date_str}", font=font_small)
-    dw = bbox[2]-bbox[0]
-    draw.text(((width-dw)//2, footer_y+24), f"#AgenticAI  #Cybersecurity  |  {date_str}",
-              font=font_small, fill=(140, 140, 140))
+    draw.text((width - 220, footer_y + 15), "#AgenticAI", font=font_small, fill=accent)
+    draw.text((width - 220, footer_y + 38), "#Cybersecurity", font=font_small, fill=accent)
+    draw.text((width - 220, footer_y + 61), date_str, font=font_small, fill=(100, 100, 100))
 
     img_bytes = io.BytesIO()
     image.save(img_bytes, format="JPEG", quality=95)
     img_bytes.seek(0)
-    print(f"Chalkboard image created!")
+    print(f"Infographic created!")
     return img_bytes.read()
 
 def upload_image_to_linkedin(image_data):
@@ -376,15 +292,15 @@ def upload_image_to_linkedin(image_data):
     return asset
 
 def job_post():
-    print(f"[{datetime.now()}] Generating LinkedIn chalkboard post about: {TOPIC}")
+    print(f"[{datetime.now()}] Generating LinkedIn infographic post about: {TOPIC}")
 
     content = ai_generate_post(TOPIC)
     print(f"Generated content: {content[:100]}...")
 
-    data = ai_generate_chalkboard_data(content)
-    print(f"Chalkboard title: {data.get('title')}")
+    infographic_data = ai_generate_infographic_data(content)
+    print(f"Infographic title: {infographic_data.get('title')}")
 
-    image_bytes = create_chalkboard_image(content, data)
+    image_bytes = create_infographic(content, infographic_data)
     asset = upload_image_to_linkedin(image_bytes)
 
     payload = {
@@ -400,11 +316,11 @@ def job_post():
                     {
                         "status": "READY",
                         "description": {
-                            "text": data.get("title", TOPIC)
+                            "text": infographic_data.get("title", TOPIC)
                         },
                         "media": asset,
                         "title": {
-                            "text": data.get("title", TOPIC)[:100]
+                            "text": infographic_data.get("title", TOPIC)[:100]
                         }
                     }
                 ]
@@ -422,7 +338,7 @@ def job_post():
     )
     r.raise_for_status()
     post_id = r.json().get("id")
-    print(f"[{datetime.now()}] LinkedIn chalkboard post published! ID: {post_id}")
+    print(f"[{datetime.now()}] LinkedIn infographic post published! ID: {post_id}")
 
 if __name__ == "__main__":
     if RUN_MODE == "post":
