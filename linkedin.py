@@ -141,7 +141,7 @@ def gemini_generate_image(subtopic, post_content):
                     f"From this cybersecurity post extract:\n"
                     f"1. Main threat/concept: 3 words max\n"
                     f"2. AI action: 3 words max\n"
-                    f"3. What protected: 3 words max\n\n"
+                    f"3. What is protected: 3 words max\n\n"
                     f"Post: {post_content}\n\n"
                     f"JSON only: {{\"threat\": \"...\", \"action\": \"...\", \"target\": \"...\"}}"}
             ],
@@ -167,44 +167,27 @@ def gemini_generate_image(subtopic, post_content):
         )
         print(f"Prompt: {full_prompt[:100]}...")
 
-        # Use new google-genai SDK with gemini-2.5-flash-image (free tier)
-        response = gemini_client.models.generate_images(
-            model="imagen-4.0-generate-001",
-            prompt=full_prompt,
-            config=types.GenerateImagesConfig(
-                number_of_images=1,
-                aspect_ratio="3:4",
-                output_mime_type="image/jpeg",
-            ),
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash-preview-05-20",
+            contents=full_prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
+            )
         )
 
-        image_bytes = response.generated_images[0].image.image_bytes
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        img = img.resize((900, 1100))
-        print(f"Gemini image generated!")
-        return img
+        for part in response.candidates[0].content.parts:
+            if part.inline_data is not None:
+                img = Image.open(
+                    io.BytesIO(part.inline_data.data)).convert("RGB")
+                img = img.resize((900, 1100))
+                print(f"Gemini image generated successfully!")
+                return img
+
+        print("No image found in response, using dark fallback")
+        return None
 
     except Exception as e:
-        print(f"Gemini failed: {e}")
-        # Try fallback model
-        try:
-            print("Trying fallback model...")
-            response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash-preview-05-20",
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    response_modalities=["IMAGE", "TEXT"],
-                )
-            )
-            for part in response.candidates[0].content.parts:
-                if part.inline_data:
-                    img = Image.open(
-                        io.BytesIO(part.inline_data.data)).convert("RGB")
-                    img = img.resize((900, 1100))
-                    print("Fallback image generated!")
-                    return img
-        except Exception as e2:
-            print(f"Fallback also failed: {e2}")
+        print(f"Gemini failed: {e}, using dark fallback")
         return None
 
 def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=10):
