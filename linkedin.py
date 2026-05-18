@@ -4,17 +4,23 @@ import os
 import textwrap
 import json
 import hashlib
+import base64
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import io
+from google import genai
+from google.genai import types
+from google.genai.types import Modality
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 LINKEDIN_ACCESS_TOKEN = os.environ["LINKEDIN_ACCESS_TOKEN"]
 LINKEDIN_PERSON_ID = os.environ["LINKEDIN_PERSON_ID"]
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 TOPIC = os.environ.get("TOPIC", "Agentic AI cybersecurity and autonomous threat detection")
 RUN_MODE = os.environ.get("RUN_MODE", "post")
 
 openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 LINKEDIN_HEADERS = {
     "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
@@ -126,8 +132,8 @@ def ai_generate_stack_data(subtopic):
     raw = raw.replace("```json", "").replace("```", "").strip()
     return json.loads(raw)
 
-def generate_background_image(subtopic, post_content):
-    print(f"[{datetime.now()}] Generating DALL-E 3 background image...")
+def gemini_generate_image(subtopic, post_content):
+    print(f"[{datetime.now()}] Generating Gemini image...")
     try:
         # Extract visual concepts from post
         vision_response = openai_client.chat.completions.create(
@@ -152,35 +158,52 @@ def generate_background_image(subtopic, post_content):
         prompt = (
             f"Advanced cybersecurity AI command center. "
             f"Large central holographic screen showing {threat} network "
-            f"visualization with glowing world threat map. "
-            f"AI robots and cybersecurity analysts monitoring {action} "
-            f"in real time at curved workstations. "
-            f"Multiple screens displaying {target} dashboards. "
-            f"Dark cinematic room with dramatic neon blue, cyan and "
-            f"purple lighting. "
-            f"Photorealistic 4K cinematic render. "
-            f"No readable text or logos in image."
+            f"visualization with world threat map. "
+            f"AI robots and security analysts monitoring {action} in real time. "
+            f"Multiple curved workstations showing {target} dashboards. "
+            f"Dark cinematic room with dramatic neon blue cyan purple lighting. "
+            f"Photorealistic 4K movie quality render. No readable text."
         )
-        print(f"DALL-E prompt: {prompt[:100]}...")
+        print(f"Prompt: {prompt[:80]}...")
 
-        response = openai_client.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            size="1024x1024",
-            quality="standard",
-            n=1,
-        )
-        image_url = response.data[0].url
-        print(f"DALL-E image URL received!")
+        # Try all known working model names
+        model_names = [
+            "gemini-2.5-flash-image",
+            "gemini-3.1-flash-image-preview",
+            "gemini-2.5-flash-image-preview",
+            "gemini-2.5-flash-preview-04-17",
+        ]
 
-        img_data = requests.get(image_url, timeout=30).content
-        img = Image.open(io.BytesIO(img_data)).convert("RGB")
-        img = img.resize((900, 1100))
-        print(f"DALL-E image SUCCESS! Size: {img.size}")
-        return img
+        for model_name in model_names:
+            try:
+                print(f"Trying: {model_name}...")
+                response = gemini_client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_modalities=[Modality.TEXT, Modality.IMAGE],
+                    )
+                )
+                parts = response.candidates[0].content.parts
+                print(f"{model_name} returned {len(parts)} parts")
+                for part in parts:
+                    if part.inline_data is not None:
+                        print(f"Image found! Size: {len(part.inline_data.data)} bytes")
+                        img = Image.open(
+                            io.BytesIO(part.inline_data.data)).convert("RGB")
+                        img = img.resize((900, 1100))
+                        print(f"SUCCESS with {model_name}!")
+                        return img
+                print(f"{model_name}: no image in response")
+            except Exception as e:
+                print(f"{model_name} failed: {str(e)[:100]}")
+                continue
+
+        print("ALL Gemini models failed - using dark fallback")
+        return None
 
     except Exception as e:
-        print(f"DALL-E failed: {type(e).__name__}: {e}")
+        print(f"Outer error: {type(e).__name__}: {e}")
         return None
 
 def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=10):
@@ -358,7 +381,7 @@ def create_animated_gif(subtopic, data, post_content=""):
     panels = data.get("panels", [])[:6]
     main_title = data.get("main_title", "AI SECURITY STACK")
 
-    bg_img = generate_background_image(subtopic, post_content)
+    bg_img = gemini_generate_image(subtopic, post_content)
 
     frames = []
     durations = []
