@@ -4,7 +4,6 @@ import os
 import textwrap
 import json
 import hashlib
-import base64
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import io
@@ -17,10 +16,7 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 TOPIC = os.environ.get("TOPIC", "Agentic AI cybersecurity and autonomous threat detection")
 RUN_MODE = os.environ.get("RUN_MODE", "post")
 
-# OpenAI client
 openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
-
-# Gemini client
 genai.configure(api_key=GEMINI_API_KEY)
 
 LINKEDIN_HEADERS = {
@@ -88,7 +84,6 @@ def ft(text, n):
     text = str(text)
     return text if len(text) <= n else text[:n-2]+".."
 
-# ── OpenAI: Generate post text ────────────────────────────────────────────────
 def ai_generate_post(subtopic):
     response = openai_client.chat.completions.create(
         model="gpt-4o",
@@ -106,7 +101,6 @@ def ai_generate_post(subtopic):
     )
     return response.choices[0].message.content.strip()
 
-# ── OpenAI: Generate infographic data ────────────────────────────────────────
 def ai_generate_stack_data(subtopic):
     response = openai_client.chat.completions.create(
         model="gpt-4o",
@@ -135,20 +129,53 @@ def ai_generate_stack_data(subtopic):
     raw = raw.replace("```json", "").replace("```", "").strip()
     return json.loads(raw)
 
-# ── Gemini: Generate background image ────────────────────────────────────────
-def gemini_generate_image(subtopic):
-    print(f"[{datetime.now()}] Generating background image with Gemini...")
+def gemini_generate_image(subtopic, post_content):
+    print(f"[{datetime.now()}] Generating Gemini image for: {subtopic}")
     try:
-        model = genai.ImageGenerationModel("imagen-3.0-generate-002")
-        prompt = (
-            f"Professional dark cybersecurity infographic background for '{subtopic}'. "
-            f"Dark navy blue and black background with subtle glowing cyan circuit board patterns, "
-            f"digital grid lines, and abstract network nodes. "
-            f"Futuristic tech aesthetic. No text. No people. "
-            f"Suitable as background for data visualization overlay."
+        # Extract visual concepts from post using OpenAI
+        vision_response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "user", "content":
+                    f"From this LinkedIn post about cybersecurity, extract:\n"
+                    f"1. The main threat or concept (3 words max)\n"
+                    f"2. What the AI is doing (3 words max)\n"
+                    f"3. What is being protected (3 words max)\n\n"
+                    f"Post: {post_content}\n\n"
+                    f"Reply with JSON only:\n"
+                    f"{{\"threat\": \"...\", \"action\": \"...\", \"target\": \"...\"}}"}
+            ],
+            max_tokens=60,
         )
+        raw = vision_response.choices[0].message.content.strip()
+        raw = raw.replace("```json","").replace("```","").strip()
+        concepts = json.loads(raw)
+        threat = concepts.get("threat", subtopic[:20])
+        action = concepts.get("action", "detecting threats")
+        target = concepts.get("target", "AI systems")
+        print(f"Concepts: threat={threat}, action={action}, target={target}")
+
+        full_prompt = (
+            f"Advanced cybersecurity AI command center. "
+            f"Large holographic screen in center displays '{threat}' "
+            f"visualization with network graphs and world map. "
+            f"AI robots and cybersecurity analysts working together, "
+            f"monitoring '{action}' in real time. "
+            f"Multiple curved monitor workstations showing dashboards "
+            f"about '{target}'. "
+            f"Dark room environment with dramatic neon blue, cyan and "
+            f"purple lighting. "
+            f"Glowing holographic data panels floating in air. "
+            f"Futuristic high tech aesthetic similar to a movie set. "
+            f"Photorealistic cinematic 4K render. "
+            f"No readable text. Ultra detailed."
+        )
+
+        print(f"Prompt: {full_prompt[:120]}...")
+
+        model = genai.ImageGenerationModel("imagen-3.0-generate-002")
         result = model.generate_images(
-            prompt=prompt,
+            prompt=full_prompt,
             number_of_images=1,
             aspect_ratio="3:4",
         )
@@ -157,8 +184,9 @@ def gemini_generate_image(subtopic):
         img = img.resize((900, 1100))
         print(f"Gemini image generated!")
         return img
+
     except Exception as e:
-        print(f"Gemini image failed: {e}, using fallback dark background")
+        print(f"Gemini failed: {e}, using dark fallback")
         return None
 
 def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=10):
@@ -190,23 +218,23 @@ def load_fonts():
         }
     except:
         d = ImageFont.load_default()
-        return {k: d for k in ["title","author","follow","panel","section","item","small"]}
+        return {k: d for k in ["title","author","follow","panel",
+                                "section","item","small"]}
 
 def render_frame(width, height, bg_img, accent, title, panels,
                  visible_count, fonts, blink=False):
 
-    # Start with Gemini background or dark fallback
+    # Background
     if bg_img is not None:
         img = bg_img.copy()
-        # Add dark overlay for readability
-        overlay = Image.new("RGBA", (width, height), (0, 0, 0, 180))
+        overlay = Image.new("RGBA", (width, height), (0, 0, 0, 175))
         img = img.convert("RGBA")
         img = Image.alpha_composite(img, overlay)
         img = img.convert("RGB")
     else:
         img = Image.new("RGB", (width, height), (5, 5, 15))
-        draw_temp = ImageDraw.Draw(img)
-        draw_grid(draw_temp, width, height)
+        d = ImageDraw.Draw(img)
+        draw_grid(d, width, height)
 
     draw = ImageDraw.Draw(img)
 
@@ -251,8 +279,7 @@ def render_frame(width, height, bg_img, accent, title, panels,
         panel = panels[idx]
         color = PANEL_COLORS[idx % len(PANEL_COLORS)]
 
-        # Semi-transparent card bg
-        card_overlay = Image.new("RGBA", (card_w, card_h), (10, 15, 25, 220))
+        # Card bg semi-transparent
         img.paste(Image.new("RGB", (card_w, card_h), (10, 15, 25)),
                   (px, py))
 
@@ -262,34 +289,37 @@ def render_frame(width, height, bg_img, accent, title, panels,
         draw.rectangle([(px, py), (px+card_w, py+42)], fill=color)
         t = ft(panel.get("title", ""), 18)
         for tl in textwrap.fill(t, width=16).split('\n'):
-            bbox = draw.textbbox((0,0), tl, font=fonts["panel"])
+            bbox = draw.textbbox((0, 0), tl, font=fonts["panel"])
             tlw = bbox[2]-bbox[0]
             draw.text((px+(card_w-tlw)//2, py+8), tl,
                       font=fonts["panel"], fill=(0, 0, 0))
 
         # Purpose
-        draw.text((px+8, py+48), "Purpose:", font=fonts["section"], fill=color)
+        draw.text((px+8, py+48), "Purpose:",
+                  font=fonts["section"], fill=color)
         draw.text((px+8, py+66), ft(panel.get("purpose", ""), 30),
                   font=fonts["item"], fill=(200, 200, 200))
 
         # Section 1
         s1_y = py + 90
-        draw.text((px+8, s1_y), ft(panel.get("section1_title",""),18)+":",
+        draw.text((px+8, s1_y),
+                  ft(panel.get("section1_title", ""), 18)+":",
                   font=fonts["section"], fill=color)
         s1_y += 20
         for item in panel.get("section1_items", [])[:3]:
-            draw.ellipse([(px+10, s1_y+5),(px+16, s1_y+11)], fill=color)
+            draw.ellipse([(px+10, s1_y+5), (px+16, s1_y+11)], fill=color)
             draw.text((px+22, s1_y), ft(item, 20),
                       font=fonts["item"], fill=(200, 200, 200))
             s1_y += 18
 
         # Section 2
         s2_y = s1_y + 8
-        draw.text((px+8, s2_y), ft(panel.get("section2_title",""),18)+":",
+        draw.text((px+8, s2_y),
+                  ft(panel.get("section2_title", ""), 18)+":",
                   font=fonts["section"], fill=color)
         s2_y += 20
         for item in panel.get("section2_items", [])[:3]:
-            draw.ellipse([(px+10, s2_y+5),(px+16, s2_y+11)], fill=color)
+            draw.ellipse([(px+10, s2_y+5), (px+16, s2_y+11)], fill=color)
             draw.text((px+22, s2_y), ft(item, 20),
                       font=fonts["item"], fill=(200, 200, 200))
             s2_y += 18
@@ -313,14 +343,16 @@ def render_frame(width, height, bg_img, accent, title, panels,
 
     if blink:
         draw.rectangle([(0, 0), (width, 4)], fill=(255, 255, 255))
-        draw.rectangle([(0, height-4), (width, height)], fill=(255, 255, 255))
+        draw.rectangle([(0, height-4), (width, height)],
+                       fill=(255, 255, 255))
 
     return img
 
 def frames_to_gif(frames, durations):
     palette_frames = []
     for frame in frames:
-        p = frame.quantize(colors=256, method=Image.Quantize.MEDIANCUT,
+        p = frame.quantize(colors=256,
+                           method=Image.Quantize.MEDIANCUT,
                            dither=Image.Dither.NONE)
         palette_frames.append(p)
 
@@ -338,21 +370,24 @@ def frames_to_gif(frames, durations):
     gif_bytes.seek(0)
     return gif_bytes.read()
 
-def create_animated_gif(subtopic, data):
+def create_animated_gif(subtopic, data, post_content=""):
     print(f"[{datetime.now()}] Creating animated GIF...")
 
     width, height = 900, 1100
     seed = get_seed(subtopic)
 
-    ACCENTS = [(0,255,200),(255,220,0),(180,80,255),(50,255,150),(255,100,100)]
+    ACCENTS = [
+        (0, 255, 200), (255, 220, 0), (180, 80, 255),
+        (50, 255, 150), (255, 100, 100)
+    ]
     accent = ACCENTS[seed % len(ACCENTS)]
 
     fonts = load_fonts()
     panels = data.get("panels", [])[:6]
     main_title = data.get("main_title", "AI SECURITY STACK")
 
-    # Generate Gemini background once
-    bg_img = gemini_generate_image(subtopic)
+    # Generate Gemini background based on post content
+    bg_img = gemini_generate_image(subtopic, post_content)
 
     frames = []
     durations = []
@@ -362,18 +397,18 @@ def create_animated_gif(subtopic, data):
                                main_title, panels, 0, fonts))
     durations.append(1200)
 
-    # Frames 1-6 — panels appear
+    # Frames 1-6 — panels appear one by one
     for i in range(1, 7):
         frames.append(render_frame(width, height, bg_img, accent,
                                    main_title, panels, i, fonts))
         durations.append(700)
 
-    # Hold
+    # Hold all visible
     frames.append(render_frame(width, height, bg_img, accent,
                                main_title, panels, 6, fonts))
     durations.append(2500)
 
-    # Blink
+    # Blink animation
     for b in range(6):
         frames.append(render_frame(width, height, bg_img, accent,
                                    main_title, panels, 6, fonts,
@@ -411,13 +446,16 @@ def upload_image_to_linkedin(image_data):
     response_json = r.json()
 
     upload_url = response_json["value"]["uploadMechanism"][
-        "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]["uploadUrl"]
+        "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"][
+        "uploadUrl"]
     asset = response_json["value"]["asset"]
 
     requests.put(
         upload_url,
-        headers={"Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
-                 "Content-Type": "image/gif"},
+        headers={
+            "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
+            "Content-Type": "image/gif"
+        },
         data=image_data
     ).raise_for_status()
 
@@ -434,7 +472,7 @@ def job_post():
     data = ai_generate_stack_data(subtopic)
     print(f"Title: {data.get('main_title')}")
 
-    gif_data = create_animated_gif(subtopic, data)
+    gif_data = create_animated_gif(subtopic, data, content)
     asset = upload_image_to_linkedin(gif_data)
 
     payload = {
@@ -446,13 +484,16 @@ def job_post():
                 "shareMediaCategory": "IMAGE",
                 "media": [{
                     "status": "READY",
-                    "description": {"text": data.get("main_title", subtopic)},
+                    "description": {
+                        "text": data.get("main_title", subtopic)},
                     "media": asset,
-                    "title": {"text": data.get("main_title", subtopic)[:100]}
+                    "title": {
+                        "text": data.get("main_title", subtopic)[:100]}
                 }]
             }
         },
-        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
+        "visibility": {
+            "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
     }
 
     r = requests.post(
