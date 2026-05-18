@@ -4,19 +4,24 @@ import os
 import textwrap
 import json
 import hashlib
+import base64
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import io
-import math
-import random
+import google.generativeai as genai
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 LINKEDIN_ACCESS_TOKEN = os.environ["LINKEDIN_ACCESS_TOKEN"]
 LINKEDIN_PERSON_ID = os.environ["LINKEDIN_PERSON_ID"]
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 TOPIC = os.environ.get("TOPIC", "Agentic AI cybersecurity and autonomous threat detection")
 RUN_MODE = os.environ.get("RUN_MODE", "post")
 
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
+# OpenAI client
+openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
+
+# Gemini client
+genai.configure(api_key=GEMINI_API_KEY)
 
 LINKEDIN_HEADERS = {
     "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
@@ -63,14 +68,6 @@ DAILY_TOPICS = [
     "AI Agent Sandboxing Techniques",
 ]
 
-COLOR_THEMES = [
-    {"bg": (5, 5, 15), "accent": (0, 255, 200), "highlight": (0, 180, 255)},
-    {"bg": (5, 5, 15), "accent": (255, 220, 0), "highlight": (255, 150, 0)},
-    {"bg": (5, 5, 15), "accent": (180, 80, 255), "highlight": (255, 50, 150)},
-    {"bg": (5, 5, 15), "accent": (50, 255, 150), "highlight": (0, 200, 100)},
-    {"bg": (5, 5, 15), "accent": (255, 100, 100), "highlight": (220, 50, 50)},
-]
-
 PANEL_COLORS = [
     (0, 255, 200),
     (255, 220, 0),
@@ -87,8 +84,13 @@ def get_daily_topic():
 def get_seed(text):
     return int(hashlib.md5(text.encode()).hexdigest(), 16)
 
+def ft(text, n):
+    text = str(text)
+    return text if len(text) <= n else text[:n-2]+".."
+
+# ── OpenAI: Generate post text ────────────────────────────────────────────────
 def ai_generate_post(subtopic):
-    response = client.chat.completions.create(
+    response = openai_client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": AGENT_PERSONA},
@@ -104,8 +106,9 @@ def ai_generate_post(subtopic):
     )
     return response.choices[0].message.content.strip()
 
+# ── OpenAI: Generate infographic data ────────────────────────────────────────
 def ai_generate_stack_data(subtopic):
-    response = client.chat.completions.create(
+    response = openai_client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "user", "content":
@@ -132,9 +135,31 @@ def ai_generate_stack_data(subtopic):
     raw = raw.replace("```json", "").replace("```", "").strip()
     return json.loads(raw)
 
-def ft(text, n):
-    text = str(text)
-    return text if len(text) <= n else text[:n-2]+".."
+# ── Gemini: Generate background image ────────────────────────────────────────
+def gemini_generate_image(subtopic):
+    print(f"[{datetime.now()}] Generating background image with Gemini...")
+    try:
+        model = genai.ImageGenerationModel("imagen-3.0-generate-002")
+        prompt = (
+            f"Professional dark cybersecurity infographic background for '{subtopic}'. "
+            f"Dark navy blue and black background with subtle glowing cyan circuit board patterns, "
+            f"digital grid lines, and abstract network nodes. "
+            f"Futuristic tech aesthetic. No text. No people. "
+            f"Suitable as background for data visualization overlay."
+        )
+        result = model.generate_images(
+            prompt=prompt,
+            number_of_images=1,
+            aspect_ratio="3:4",
+        )
+        image_bytes = result.images[0]._image_bytes
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        img = img.resize((900, 1100))
+        print(f"Gemini image generated!")
+        return img
+    except Exception as e:
+        print(f"Gemini image failed: {e}, using fallback dark background")
+        return None
 
 def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=10):
     for x in range(x0, x1, dash*2):
@@ -144,11 +169,11 @@ def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=10):
         draw.line([(x0, y), (x0, min(y+dash, y1))], fill=color, width=2)
         draw.line([(x1, y), (x1, min(y+dash, y1))], fill=color, width=2)
 
-def draw_grid(draw, w, h):
+def draw_grid(draw, w, h, color=(20, 20, 30)):
     for x in range(0, w, 40):
-        draw.line([(x, 0), (x, h)], fill=(20, 20, 30), width=1)
+        draw.line([(x, 0), (x, h)], fill=color, width=1)
     for y in range(0, h, 40):
-        draw.line([(0, y), (w, y)], fill=(20, 20, 30), width=1)
+        draw.line([(0, y), (w, y)], fill=color, width=1)
 
 def load_fonts():
     try:
@@ -167,25 +192,32 @@ def load_fonts():
         d = ImageFont.load_default()
         return {k: d for k in ["title","author","follow","panel","section","item","small"]}
 
-def render_full_frame(width, height, bg, accent, title, panels,
-                       visible_count, fonts, blink=False):
-    """Render complete frame as RGB — no palette issues"""
-    img = Image.new("RGB", (width, height), bg)
+def render_frame(width, height, bg_img, accent, title, panels,
+                 visible_count, fonts, blink=False):
+
+    # Start with Gemini background or dark fallback
+    if bg_img is not None:
+        img = bg_img.copy()
+        # Add dark overlay for readability
+        overlay = Image.new("RGBA", (width, height), (0, 0, 0, 180))
+        img = img.convert("RGBA")
+        img = Image.alpha_composite(img, overlay)
+        img = img.convert("RGB")
+    else:
+        img = Image.new("RGB", (width, height), (5, 5, 15))
+        draw_temp = ImageDraw.Draw(img)
+        draw_grid(draw_temp, width, height)
+
     draw = ImageDraw.Draw(img)
 
-    # Grid
-    draw_grid(draw, width, height)
-
     # ── Header ────────────────────────────────────────────────────────────────
-    # Author circle
     draw.ellipse([(width//2-28, 18), (width//2+28, 74)],
                  outline=accent, width=2, fill=(15, 15, 25))
     draw.text((width//2-14, 36), "AO", font=fonts["author"], fill=accent)
-
     draw.text((width//2-62, 82), "Aurobinda Ojha",
-              font=fonts["author"], fill=(200, 200, 200))
+              font=fonts["author"], fill=(220, 220, 220))
     draw.text((width//2-48, 106), "Follow For More",
-              font=fonts["follow"], fill=(120, 120, 120))
+              font=fonts["follow"], fill=(160, 160, 160))
 
     # Title
     title_wrapped = textwrap.fill(title, width=16)
@@ -202,7 +234,7 @@ def render_full_frame(width, height, bg, accent, title, panels,
     draw.rectangle([(40, ty+4), (width-40, ty+7)], fill=ul_color)
     ty += 18
 
-    # ── Panels grid ───────────────────────────────────────────────────────────
+    # ── Panels ────────────────────────────────────────────────────────────────
     M = 18
     card_w = (width - M*4) // 3
     card_h = 295
@@ -219,55 +251,49 @@ def render_full_frame(width, height, bg, accent, title, panels,
         panel = panels[idx]
         color = PANEL_COLORS[idx % len(PANEL_COLORS)]
 
-        # Card bg
-        draw.rectangle([(px, py), (px+card_w, py+card_h)],
-                       fill=(10, 15, 25))
+        # Semi-transparent card bg
+        card_overlay = Image.new("RGBA", (card_w, card_h), (10, 15, 25, 220))
+        img.paste(Image.new("RGB", (card_w, card_h), (10, 15, 25)),
+                  (px, py))
 
-        # Dashed border
         draw_dashed_rect(draw, px, py, px+card_w, py+card_h, color)
 
         # Header
         draw.rectangle([(px, py), (px+card_w, py+42)], fill=color)
-        title_text = ft(panel.get("title", ""), 18)
-        title_lines = textwrap.fill(title_text, width=16).split('\n')
-        header_ty = py + 4
-        for tl in title_lines:
+        t = ft(panel.get("title", ""), 18)
+        for tl in textwrap.fill(t, width=16).split('\n'):
             bbox = draw.textbbox((0,0), tl, font=fonts["panel"])
             tlw = bbox[2]-bbox[0]
-            draw.text((px+(card_w-tlw)//2, header_ty), tl,
+            draw.text((px+(card_w-tlw)//2, py+8), tl,
                       font=fonts["panel"], fill=(0, 0, 0))
-            header_ty += 20
 
         # Purpose
-        purpose = ft(panel.get("purpose", ""), 30)
         draw.text((px+8, py+48), "Purpose:", font=fonts["section"], fill=color)
-        draw.text((px+8, py+66), purpose, font=fonts["item"], fill=(190, 190, 190))
+        draw.text((px+8, py+66), ft(panel.get("purpose", ""), 30),
+                  font=fonts["item"], fill=(200, 200, 200))
 
         # Section 1
-        s1_y = py + 88
-        s1t = ft(panel.get("section1_title", ""), 18)
-        draw.text((px+8, s1_y), s1t+":", font=fonts["section"], fill=color)
+        s1_y = py + 90
+        draw.text((px+8, s1_y), ft(panel.get("section1_title",""),18)+":",
+                  font=fonts["section"], fill=color)
         s1_y += 20
         for item in panel.get("section1_items", [])[:3]:
-            item_t = ft(item, 20)
-            draw.ellipse([(px+10, s1_y+5), (px+16, s1_y+11)], fill=color)
-            draw.text((px+22, s1_y), item_t, font=fonts["item"],
-                      fill=(190, 190, 190))
+            draw.ellipse([(px+10, s1_y+5),(px+16, s1_y+11)], fill=color)
+            draw.text((px+22, s1_y), ft(item, 20),
+                      font=fonts["item"], fill=(200, 200, 200))
             s1_y += 18
 
         # Section 2
         s2_y = s1_y + 8
-        s2t = ft(panel.get("section2_title", ""), 18)
-        draw.text((px+8, s2_y), s2t+":", font=fonts["section"], fill=color)
+        draw.text((px+8, s2_y), ft(panel.get("section2_title",""),18)+":",
+                  font=fonts["section"], fill=color)
         s2_y += 20
         for item in panel.get("section2_items", [])[:3]:
-            item_t = ft(item, 20)
-            draw.ellipse([(px+10, s2_y+5), (px+16, s2_y+11)], fill=color)
-            draw.text((px+22, s2_y), item_t, font=fonts["item"],
-                      fill=(190, 190, 190))
+            draw.ellipse([(px+10, s2_y+5),(px+16, s2_y+11)], fill=color)
+            draw.text((px+22, s2_y), ft(item, 20),
+                      font=fonts["item"], fill=(200, 200, 200))
             s2_y += 18
 
-        # Tools label
         draw.text((px+8, py+card_h-22), "Key Tools:",
                   font=fonts["section"], fill=color)
 
@@ -285,7 +311,6 @@ def render_full_frame(width, height, bg, accent, title, panels,
               f"#AgenticAI  #Cybersecurity  |  {date_str}",
               font=fonts["small"], fill=(100, 100, 100))
 
-    # Blink borders
     if blink:
         draw.rectangle([(0, 0), (width, 4)], fill=(255, 255, 255))
         draw.rectangle([(0, height-4), (width, height)], fill=(255, 255, 255))
@@ -293,11 +318,8 @@ def render_full_frame(width, height, bg, accent, title, panels,
     return img
 
 def frames_to_gif(frames, durations):
-    """Convert RGB frames to optimized GIF"""
-    # Convert to palette mode with dithering for quality
     palette_frames = []
     for frame in frames:
-        # Reduce to 256 colors with dithering
         p = frame.quantize(colors=256, method=Image.Quantize.MEDIANCUT,
                            dither=Image.Dither.NONE)
         palette_frames.append(p)
@@ -311,7 +333,7 @@ def frames_to_gif(frames, durations):
         duration=durations,
         loop=0,
         optimize=False,
-        disposal=2,  # Clear frame before drawing next — prevents ghosting
+        disposal=2,
     )
     gif_bytes.seek(0)
     return gif_bytes.read()
@@ -321,48 +343,50 @@ def create_animated_gif(subtopic, data):
 
     width, height = 900, 1100
     seed = get_seed(subtopic)
-    theme = COLOR_THEMES[seed % len(COLOR_THEMES)]
-    bg = theme["bg"]
-    accent = theme["accent"]
+
+    ACCENTS = [(0,255,200),(255,220,0),(180,80,255),(50,255,150),(255,100,100)]
+    accent = ACCENTS[seed % len(ACCENTS)]
 
     fonts = load_fonts()
     panels = data.get("panels", [])[:6]
     main_title = data.get("main_title", "AI SECURITY STACK")
 
+    # Generate Gemini background once
+    bg_img = gemini_generate_image(subtopic)
+
     frames = []
     durations = []
 
-    # Frame 0 — title only (1.2s)
-    frames.append(render_full_frame(
-        width, height, bg, accent, main_title, panels, 0, fonts))
+    # Frame 0 — title only
+    frames.append(render_frame(width, height, bg_img, accent,
+                               main_title, panels, 0, fonts))
     durations.append(1200)
 
-    # Frames 1-6 — panels appear one by one (0.7s each)
+    # Frames 1-6 — panels appear
     for i in range(1, 7):
-        frames.append(render_full_frame(
-            width, height, bg, accent, main_title, panels, i, fonts))
+        frames.append(render_frame(width, height, bg_img, accent,
+                                   main_title, panels, i, fonts))
         durations.append(700)
 
-    # Hold all visible (2.5s)
-    frames.append(render_full_frame(
-        width, height, bg, accent, main_title, panels, 6, fonts))
+    # Hold
+    frames.append(render_frame(width, height, bg_img, accent,
+                               main_title, panels, 6, fonts))
     durations.append(2500)
 
-    # Blink 3 times
+    # Blink
     for b in range(6):
-        blink = b % 2 == 0
-        frames.append(render_full_frame(
-            width, height, bg, accent, main_title, panels, 6, fonts,
-            blink=blink))
+        frames.append(render_frame(width, height, bg_img, accent,
+                                   main_title, panels, 6, fonts,
+                                   blink=b%2==0))
         durations.append(250)
 
-    # Final hold (2s)
-    frames.append(render_full_frame(
-        width, height, bg, accent, main_title, panels, 6, fonts))
+    # Final hold
+    frames.append(render_frame(width, height, bg_img, accent,
+                               main_title, panels, 6, fonts))
     durations.append(2000)
 
     gif_data = frames_to_gif(frames, durations)
-    print(f"GIF created! {len(frames)} frames, size: {len(gif_data)//1024}KB")
+    print(f"GIF created! {len(frames)} frames, {len(gif_data)//1024}KB")
     return gif_data
 
 def upload_image_to_linkedin(image_data):
