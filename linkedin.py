@@ -4,6 +4,7 @@ import os
 import textwrap
 import json
 import hashlib
+import base64
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import io
@@ -131,20 +132,18 @@ def ai_generate_stack_data(subtopic):
     return json.loads(raw)
 
 def gemini_generate_image(subtopic, post_content):
-    print(f"[{datetime.now()}] Generating Gemini image for: {subtopic}")
+    print(f"[{datetime.now()}] Generating Gemini image via REST API...")
     try:
         # Extract visual concepts from post
         vision_response = openai_client.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "user", "content":
-                    f"From this cybersecurity post extract:\n"
-                    f"1. Main threat/concept: 3 words max\n"
-                    f"2. AI action: 3 words max\n"
-                    f"3. What is protected: 3 words max\n\n"
-                    f"Post: {post_content}\n\n"
-                    f"JSON only: {{\"threat\": \"...\", \"action\": \"...\", \"target\": \"...\"}}"}
-            ],
+            messages=[{"role": "user", "content":
+                f"From this post extract 3 things:\n"
+                f"1. Main threat: 3 words\n"
+                f"2. AI action: 3 words\n"
+                f"3. Target: 3 words\n"
+                f"Post: {post_content}\n"
+                f"JSON only: {{\"threat\":\"...\",\"action\":\"...\",\"target\":\"...\"}}"}],
             max_tokens=60,
         )
         raw = vision_response.choices[0].message.content.strip()
@@ -153,87 +152,128 @@ def gemini_generate_image(subtopic, post_content):
         threat = concepts.get("threat", subtopic[:20])
         action = concepts.get("action", "detecting threats")
         target = concepts.get("target", "AI systems")
-        print(f"Concepts: threat={threat}, action={action}, target={target}")
+        print(f"Concepts: {threat} | {action} | {target}")
 
-        full_prompt = (
+        prompt = (
             f"Advanced cybersecurity AI command center. "
-            f"Holographic screen showing {threat} visualization. "
-            f"AI robots monitoring {action}. "
-            f"Workstations displaying {target} dashboards. "
-            f"Dark room neon blue purple lighting. "
-            f"Cinematic photorealistic 4K. No text."
+            f"Large central holographic screen showing {threat} network "
+            f"visualization with world threat map. "
+            f"AI robots and security analysts monitoring {action} in real time. "
+            f"Multiple curved workstations showing {target} dashboards. "
+            f"Dark cinematic room with dramatic neon blue cyan purple lighting. "
+            f"Photorealistic 4K movie quality render. No readable text."
         )
-        print(f"Sending to Gemini: {full_prompt[:80]}...")
+        print(f"Prompt: {prompt[:100]}...")
 
-        # Try model 1 — gemini-2.5-flash-preview
+        # Method 1 — gemini-2.0-flash-exp via REST
         try:
-            response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash-preview-05-20",
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    response_modalities=["IMAGE", "TEXT"],
-                )
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
             )
-            print(f"Model 1 response parts: {len(response.candidates[0].content.parts)}")
-            for i, part in enumerate(response.candidates[0].content.parts):
-                print(f"Part {i}: has_image={part.inline_data is not None}")
-                if part.inline_data is not None:
-                    print(f"Image bytes: {len(part.inline_data.data)}")
-                    img = Image.open(io.BytesIO(part.inline_data.data)).convert("RGB")
-                    img = img.resize((900, 1100))
-                    print(f"Model 1 SUCCESS!")
-                    return img
-            print("Model 1: No image in response")
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}
+            }
+            resp = requests.post(url, json=payload, timeout=60)
+            print(f"Method 1 status: {resp.status_code}")
+            if resp.status_code == 200:
+                data = resp.json()
+                parts = data.get("candidates",[{}])[0].get("content",{}).get("parts",[])
+                print(f"Method 1 parts: {len(parts)}")
+                for part in parts:
+                    if "inlineData" in part:
+                        img_data = base64.b64decode(part["inlineData"]["data"])
+                        img = Image.open(io.BytesIO(img_data)).convert("RGB")
+                        img = img.resize((900, 1100))
+                        print(f"Method 1 SUCCESS!")
+                        return img
+                print(f"Method 1 no image. Response: {str(data)[:200]}")
+            else:
+                print(f"Method 1 error: {resp.text[:200]}")
         except Exception as e1:
-            print(f"Model 1 failed: {type(e1).__name__}: {e1}")
+            print(f"Method 1 exception: {e1}")
 
-        # Try model 2 — gemini-2.0-flash-exp
+        # Method 2 — imagen-3.0 via REST
         try:
-            print("Trying gemini-2.0-flash-exp...")
-            response2 = gemini_client.models.generate_content(
-                model="gemini-2.0-flash-exp",
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    response_modalities=["IMAGE", "TEXT"],
-                )
+            url2 = (
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"imagen-3.0-generate-002:predict?key={GEMINI_API_KEY}"
             )
-            print(f"Model 2 parts: {len(response2.candidates[0].content.parts)}")
-            for part in response2.candidates[0].content.parts:
-                if part.inline_data is not None:
-                    img = Image.open(io.BytesIO(part.inline_data.data)).convert("RGB")
+            payload2 = {
+                "instances": [{"prompt": prompt}],
+                "parameters": {"sampleCount": 1, "aspectRatio": "3:4"}
+            }
+            resp2 = requests.post(url2, json=payload2, timeout=60)
+            print(f"Method 2 status: {resp2.status_code}")
+            if resp2.status_code == 200:
+                data2 = resp2.json()
+                predictions = data2.get("predictions", [])
+                print(f"Method 2 predictions: {len(predictions)}")
+                if predictions and "bytesBase64Encoded" in predictions[0]:
+                    img_data = base64.b64decode(
+                        predictions[0]["bytesBase64Encoded"])
+                    img = Image.open(io.BytesIO(img_data)).convert("RGB")
                     img = img.resize((900, 1100))
-                    print(f"Model 2 SUCCESS!")
+                    print(f"Method 2 SUCCESS!")
                     return img
-            print("Model 2: No image in response")
+                print(f"Method 2 no image. Response: {str(data2)[:200]}")
+            else:
+                print(f"Method 2 error: {resp2.text[:200]}")
         except Exception as e2:
-            print(f"Model 2 failed: {type(e2).__name__}: {e2}")
+            print(f"Method 2 exception: {e2}")
 
-        # Try model 3 — gemini-2.0-flash-preview-image-generation
+        # Method 3 — SDK gemini-2.5-flash
         try:
-            print("Trying gemini-2.0-flash-preview-image-generation...")
+            print("Method 3: SDK gemini-2.5-flash-preview-05-20...")
             response3 = gemini_client.models.generate_content(
-                model="gemini-2.0-flash-preview-image-generation",
-                contents=full_prompt,
+                model="gemini-2.5-flash-preview-05-20",
+                contents=prompt,
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE", "TEXT"],
                 )
             )
-            print(f"Model 3 parts: {len(response3.candidates[0].content.parts)}")
-            for part in response3.candidates[0].content.parts:
+            parts3 = response3.candidates[0].content.parts
+            print(f"Method 3 parts: {len(parts3)}")
+            for part in parts3:
                 if part.inline_data is not None:
-                    img = Image.open(io.BytesIO(part.inline_data.data)).convert("RGB")
+                    img = Image.open(
+                        io.BytesIO(part.inline_data.data)).convert("RGB")
                     img = img.resize((900, 1100))
-                    print(f"Model 3 SUCCESS!")
+                    print(f"Method 3 SUCCESS!")
                     return img
-            print("Model 3: No image in response")
+            print("Method 3 no image")
         except Exception as e3:
-            print(f"Model 3 failed: {type(e3).__name__}: {e3}")
+            print(f"Method 3 exception: {e3}")
 
-        print("ALL Gemini models failed - using dark fallback")
+        # Method 4 — SDK gemini-2.0-flash-exp
+        try:
+            print("Method 4: SDK gemini-2.0-flash-exp...")
+            response4 = gemini_client.models.generate_content(
+                model="gemini-2.0-flash-exp",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE", "TEXT"],
+                )
+            )
+            parts4 = response4.candidates[0].content.parts
+            print(f"Method 4 parts: {len(parts4)}")
+            for part in parts4:
+                if part.inline_data is not None:
+                    img = Image.open(
+                        io.BytesIO(part.inline_data.data)).convert("RGB")
+                    img = img.resize((900, 1100))
+                    print(f"Method 4 SUCCESS!")
+                    return img
+            print("Method 4 no image")
+        except Exception as e4:
+            print(f"Method 4 exception: {e4}")
+
+        print("ALL methods failed - using dark fallback")
         return None
 
     except Exception as e:
-        print(f"Gemini outer error: {type(e).__name__}: {e}")
+        print(f"Outer error: {type(e).__name__}: {e}")
         return None
 
 def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=10):
@@ -270,7 +310,6 @@ def load_fonts():
 
 def render_frame(width, height, bg_img, accent, title, panels,
                  visible_count, fonts, blink=False):
-
     if bg_img is not None:
         img = bg_img.copy()
         overlay = Image.new("RGBA", (width, height), (0, 0, 0, 175))
