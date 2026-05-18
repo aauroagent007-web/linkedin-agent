@@ -4,19 +4,23 @@ import os
 import textwrap
 import json
 import hashlib
+import base64
 from datetime import datetime
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 import io
-import subprocess
-import tempfile
+from google import genai
+from google.genai import types
+from google.genai.types import Modality
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 LINKEDIN_ACCESS_TOKEN = os.environ["LINKEDIN_ACCESS_TOKEN"]
 LINKEDIN_PERSON_ID = os.environ["LINKEDIN_PERSON_ID"]
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 TOPIC = os.environ.get("TOPIC", "Agentic AI cybersecurity and autonomous threat detection")
 RUN_MODE = os.environ.get("RUN_MODE", "post")
 
 openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 LINKEDIN_HEADERS = {
     "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
@@ -128,14 +132,17 @@ def ai_generate_stack_data(subtopic):
     raw = raw.replace("```json", "").replace("```", "").strip()
     return json.loads(raw)
 
-def generate_background_image(subtopic, post_content):
-    print(f"[{datetime.now()}] Generating DALL-E 3 background...")
+def gemini_generate_image(subtopic, post_content):
+    print(f"[{datetime.now()}] Generating Gemini image...")
     try:
+        # Extract visual concepts from post
         vision_response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content":
                 f"From this post extract 3 things:\n"
-                f"1. Main threat: 3 words\n2. AI action: 3 words\n3. Target: 3 words\n"
+                f"1. Main threat: 3 words\n"
+                f"2. AI action: 3 words\n"
+                f"3. Target: 3 words\n"
                 f"Post: {post_content}\n"
                 f"JSON only: {{\"threat\":\"...\",\"action\":\"...\",\"target\":\"...\"}}"}],
             max_tokens=60,
@@ -149,34 +156,54 @@ def generate_background_image(subtopic, post_content):
         print(f"Concepts: {threat} | {action} | {target}")
 
         prompt = (
-            f"Advanced cybersecurity AI command center at night. "
-            f"Large holographic screen showing {threat} global network map. "
-            f"AI robots and analysts at curved desks monitoring {action}. "
-            f"Screens showing {target} analytics dashboards. "
-            f"Cinematic dark room, vivid neon blue cyan purple glow. "
-            f"Photorealistic movie quality. Wide establishing shot. "
-            f"No text visible anywhere in image."
+            f"Advanced cybersecurity AI command center. "
+            f"Large central holographic screen showing {threat} network "
+            f"visualization with world threat map. "
+            f"AI robots and security analysts monitoring {action} in real time. "
+            f"Multiple curved workstations showing {target} dashboards. "
+            f"Dark cinematic room with dramatic neon blue cyan purple lighting. "
+            f"Photorealistic 4K movie quality render. No readable text."
         )
-        print(f"Prompt: {prompt[:100]}...")
+        print(f"Prompt: {prompt[:80]}...")
 
-        response = openai_client.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            size="1024x1024",
-            quality="standard",
-            n=1,
-        )
-        image_url = response.data[0].url
-        print(f"Image URL received, downloading...")
-        img_data = requests.get(image_url, timeout=30).content
-        img = Image.open(io.BytesIO(img_data)).convert("RGB")
-        # Resize to portrait for the infographic
-        img = img.resize((900, 1100), Image.LANCZOS)
-        print(f"DALL-E image ready: {img.size}")
-        return img
+        # Try all known working model names
+        model_names = [
+            "gemini-2.5-flash-image",
+            "gemini-3.1-flash-image-preview",
+            "gemini-2.5-flash-image-preview",
+            "gemini-2.5-flash-preview-04-17",
+        ]
+
+        for model_name in model_names:
+            try:
+                print(f"Trying: {model_name}...")
+                response = gemini_client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_modalities=[Modality.TEXT, Modality.IMAGE],
+                    )
+                )
+                parts = response.candidates[0].content.parts
+                print(f"{model_name} returned {len(parts)} parts")
+                for part in parts:
+                    if part.inline_data is not None:
+                        print(f"Image found! Size: {len(part.inline_data.data)} bytes")
+                        img = Image.open(
+                            io.BytesIO(part.inline_data.data)).convert("RGB")
+                        img = img.resize((900, 1100))
+                        print(f"SUCCESS with {model_name}!")
+                        return img
+                print(f"{model_name}: no image in response")
+            except Exception as e:
+                print(f"{model_name} failed: {str(e)[:100]}")
+                continue
+
+        print("ALL Gemini models failed - using dark fallback")
+        return None
 
     except Exception as e:
-        print(f"DALL-E failed: {type(e).__name__}: {e}")
+        print(f"Outer error: {type(e).__name__}: {e}")
         return None
 
 def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=10):
@@ -186,6 +213,12 @@ def draw_dashed_rect(draw, x0, y0, x1, y1, color, dash=10):
     for y in range(y0, y1, dash*2):
         draw.line([(x0, y), (x0, min(y+dash, y1))], fill=color, width=2)
         draw.line([(x1, y), (x1, min(y+dash, y1))], fill=color, width=2)
+
+def draw_grid(draw, w, h, color=(20, 20, 30)):
+    for x in range(0, w, 40):
+        draw.line([(x, 0), (x, h)], fill=color, width=1)
+    for y in range(0, h, 40):
+        draw.line([(0, y), (w, y)], fill=color, width=1)
 
 def load_fonts():
     try:
@@ -205,30 +238,19 @@ def load_fonts():
         return {k: d for k in ["title","author","follow","panel",
                                 "section","item","small"]}
 
-def render_frame_rgb(width, height, bg_img, accent, title,
-                     panels, visible_count, fonts, blink=False):
-    """Render a full RGB frame — no palette conversion yet"""
-
+def render_frame(width, height, bg_img, accent, title, panels,
+                 visible_count, fonts, blink=False):
     if bg_img is not None:
-        img = bg_img.copy().convert("RGBA")
-        # lighter overlay so background photo shows through clearly
-        overlay = Image.new("RGBA", (width, height), (0, 0, 0, 120))
-        img = Image.alpha_composite(img, overlay).convert("RGB")
+        img = bg_img.copy()
+        overlay = Image.new("RGBA", (width, height), (0, 0, 0, 175))
+        img = img.convert("RGBA")
+        img = Image.alpha_composite(img, overlay)
+        img = img.convert("RGB")
     else:
         img = Image.new("RGB", (width, height), (5, 5, 15))
         d = ImageDraw.Draw(img)
-        for x in range(0, width, 40):
-            d.line([(x, 0), (x, height)], fill=(20, 20, 30))
-        for y in range(0, height, 40):
-            d.line([(0, y), (width, y)], fill=(20, 20, 30))
+        draw_grid(d, width, height)
 
-    draw = ImageDraw.Draw(img)
-
-    # Semi-transparent top bar for header readability
-    header_bar = Image.new("RGBA", (width, 130), (0, 0, 0, 160))
-    img.paste(Image.new("RGB", (width, 130), (0,0,0)),
-              (0, 0),
-              header_bar)
     draw = ImageDraw.Draw(img)
 
     # Header
@@ -240,17 +262,10 @@ def render_frame_rgb(width, height, bg_img, accent, title,
     draw.text((width//2-48, 106), "Follow For More",
               font=fonts["follow"], fill=(160, 160, 160))
 
-    # Title bar
+    # Title
     title_wrapped = textwrap.fill(title, width=16)
-    title_lines = title_wrapped.split('\n')
-    title_h = len(title_lines) * 82 + 20
-    title_bar = Image.new("RGBA", (width, title_h), (0, 0, 0, 140))
-    img.paste(Image.new("RGB", (width, title_h), (0,0,0)),
-              (0, 130), title_bar)
-    draw = ImageDraw.Draw(img)
-
     ty = 138
-    for line in title_lines:
+    for line in title_wrapped.split('\n'):
         bbox = draw.textbbox((0, 0), line, font=fonts["title"])
         tw = bbox[2]-bbox[0]
         draw.text(((width-tw)//2, ty), line,
@@ -277,15 +292,11 @@ def render_frame_rgb(width, height, bg_img, accent, title,
         panel = panels[idx]
         color = PANEL_COLORS[idx % len(PANEL_COLORS)]
 
-        # Semi-transparent card
-        card_overlay = Image.new("RGBA", (card_w, card_h), (8, 12, 22, 210))
-        img.paste(Image.new("RGB", (card_w, card_h), (8, 12, 22)),
-                  (px, py), card_overlay)
-        draw = ImageDraw.Draw(img)
-
+        img.paste(Image.new("RGB", (card_w, card_h), (10, 15, 25)),
+                  (px, py))
         draw_dashed_rect(draw, px, py, px+card_w, py+card_h, color)
-        draw.rectangle([(px, py), (px+card_w, py+42)], fill=color)
 
+        draw.rectangle([(px, py), (px+card_w, py+42)], fill=color)
         t = ft(panel.get("title", ""), 18)
         for tl in textwrap.fill(t, width=16).split('\n'):
             bbox = draw.textbbox((0, 0), tl, font=fonts["panel"])
@@ -295,29 +306,29 @@ def render_frame_rgb(width, height, bg_img, accent, title,
 
         draw.text((px+8, py+48), "Purpose:",
                   font=fonts["section"], fill=color)
-        draw.text((px+8, py+66), ft(panel.get("purpose",""), 30),
+        draw.text((px+8, py+66), ft(panel.get("purpose", ""), 30),
                   font=fonts["item"], fill=(200, 200, 200))
 
-        s1_y = py+90
+        s1_y = py + 90
         draw.text((px+8, s1_y),
-                  ft(panel.get("section1_title",""),18)+":",
+                  ft(panel.get("section1_title", ""), 18)+":",
                   font=fonts["section"], fill=color)
         s1_y += 20
-        for item in panel.get("section1_items",[])[:3]:
-            draw.ellipse([(px+10,s1_y+5),(px+16,s1_y+11)], fill=color)
-            draw.text((px+22,s1_y), ft(item,20),
-                      font=fonts["item"], fill=(200,200,200))
+        for item in panel.get("section1_items", [])[:3]:
+            draw.ellipse([(px+10, s1_y+5), (px+16, s1_y+11)], fill=color)
+            draw.text((px+22, s1_y), ft(item, 20),
+                      font=fonts["item"], fill=(200, 200, 200))
             s1_y += 18
 
-        s2_y = s1_y+8
+        s2_y = s1_y + 8
         draw.text((px+8, s2_y),
-                  ft(panel.get("section2_title",""),18)+":",
+                  ft(panel.get("section2_title", ""), 18)+":",
                   font=fonts["section"], fill=color)
         s2_y += 20
-        for item in panel.get("section2_items",[])[:3]:
-            draw.ellipse([(px+10,s2_y+5),(px+16,s2_y+11)], fill=color)
-            draw.text((px+22,s2_y), ft(item,20),
-                      font=fonts["item"], fill=(200,200,200))
+        for item in panel.get("section2_items", [])[:3]:
+            draw.ellipse([(px+10, s2_y+5), (px+16, s2_y+11)], fill=color)
+            draw.text((px+22, s2_y), ft(item, 20),
+                      font=fonts["item"], fill=(200, 200, 200))
             s2_y += 18
 
         draw.text((px+8, py+card_h-22), "Key Tools:",
@@ -325,26 +336,40 @@ def render_frame_rgb(width, height, bg_img, accent, title,
 
     # Footer
     footer_y = start_y + 2*(card_h+M) + M
-    footer_bar = Image.new("RGBA", (width, height-footer_y), (5,5,15,240))
-    img.paste(Image.new("RGB", (width, height-footer_y), (5,5,15)),
-              (0, footer_y), footer_bar)
-    draw = ImageDraw.Draw(img)
-    draw.rectangle([(0,footer_y),(width,footer_y+3)], fill=accent)
-    draw.text((30,footer_y+10), "Aurobinda Ojha",
+    draw.rectangle([(0, footer_y), (width, height)], fill=(5, 5, 15))
+    draw.rectangle([(0, footer_y), (width, footer_y+3)], fill=accent)
+    draw.text((30, footer_y+10), "Aurobinda Ojha",
               font=fonts["author"], fill=accent)
-    draw.text((30,footer_y+34),
+    draw.text((30, footer_y+34),
               "Independent Researcher | Cybersecurity & Agentic AI",
-              font=fonts["small"], fill=(140,140,140))
+              font=fonts["small"], fill=(140, 140, 140))
     date_str = datetime.now().strftime("%B %d, %Y")
-    draw.text((30,footer_y+54),
+    draw.text((30, footer_y+54),
               f"#AgenticAI  #Cybersecurity  |  {date_str}",
-              font=fonts["small"], fill=(100,100,100))
+              font=fonts["small"], fill=(100, 100, 100))
 
     if blink:
-        draw.rectangle([(0,0),(width,4)], fill=(255,255,255))
-        draw.rectangle([(0,height-4),(width,height)], fill=(255,255,255))
-
+        draw.rectangle([(0, 0), (width, 4)], fill=(255, 255, 255))
+        draw.rectangle([(0, height-4), (width, height)],
+                       fill=(255, 255, 255))
     return img
+
+def frames_to_gif(frames, durations):
+    palette_frames = []
+    for frame in frames:
+        p = frame.quantize(colors=256,
+                           method=Image.Quantize.MEDIANCUT,
+                           dither=Image.Dither.NONE)
+        palette_frames.append(p)
+    gif_bytes = io.BytesIO()
+    palette_frames[0].save(
+        gif_bytes, format="GIF", save_all=True,
+        append_images=palette_frames[1:],
+        duration=durations, loop=0,
+        optimize=False, disposal=2,
+    )
+    gif_bytes.seek(0)
+    return gif_bytes.read()
 
 def create_animated_gif(subtopic, data, post_content=""):
     print(f"[{datetime.now()}] Creating animated GIF...")
@@ -356,72 +381,36 @@ def create_animated_gif(subtopic, data, post_content=""):
     panels = data.get("panels", [])[:6]
     main_title = data.get("main_title", "AI SECURITY STACK")
 
-    bg_img = generate_background_image(subtopic, post_content)
-    if bg_img:
-        print(f"Background loaded: {bg_img.size}, mode: {bg_img.mode}")
-        # Sample center pixel to confirm it's not black
-        px = bg_img.getpixel((450, 550))
-        print(f"Background center pixel: {px}")
-    else:
-        print("No background - using dark fallback")
+    bg_img = gemini_generate_image(subtopic, post_content)
 
-    rgb_frames = []
+    frames = []
     durations = []
 
-    # Frame 0 — title only
-    rgb_frames.append(render_frame_rgb(
-        width, height, bg_img, accent, main_title, panels, 0, fonts))
+    frames.append(render_frame(width, height, bg_img, accent,
+                               main_title, panels, 0, fonts))
     durations.append(1200)
 
-    # Frames 1-6 — panels appear one by one
     for i in range(1, 7):
-        rgb_frames.append(render_frame_rgb(
-            width, height, bg_img, accent, main_title, panels, i, fonts))
+        frames.append(render_frame(width, height, bg_img, accent,
+                                   main_title, panels, i, fonts))
         durations.append(700)
 
-    # Hold
-    rgb_frames.append(render_frame_rgb(
-        width, height, bg_img, accent, main_title, panels, 6, fonts))
+    frames.append(render_frame(width, height, bg_img, accent,
+                               main_title, panels, 6, fonts))
     durations.append(2500)
 
-    # Blink
     for b in range(6):
-        rgb_frames.append(render_frame_rgb(
-            width, height, bg_img, accent, main_title,
-            panels, 6, fonts, blink=b%2==0))
+        frames.append(render_frame(width, height, bg_img, accent,
+                                   main_title, panels, 6, fonts,
+                                   blink=b%2==0))
         durations.append(250)
 
-    # Final hold
-    rgb_frames.append(render_frame_rgb(
-        width, height, bg_img, accent, main_title, panels, 6, fonts))
+    frames.append(render_frame(width, height, bg_img, accent,
+                               main_title, panels, 6, fonts))
     durations.append(2000)
 
-    # Convert to GIF — use first frame palette for consistency
-    print("Converting to GIF...")
-    palette_frames = []
-    # Use ADAPTIVE quantization per frame for best quality
-    for frame in rgb_frames:
-        p = frame.quantize(
-            colors=256,
-            method=Image.Quantize.MEDIANCUT,
-            dither=Image.Dither.NONE
-        )
-        palette_frames.append(p)
-
-    gif_bytes = io.BytesIO()
-    palette_frames[0].save(
-        gif_bytes,
-        format="GIF",
-        save_all=True,
-        append_images=palette_frames[1:],
-        duration=durations,
-        loop=0,
-        optimize=False,
-        disposal=2,
-    )
-    gif_bytes.seek(0)
-    gif_data = gif_bytes.read()
-    print(f"GIF created: {len(rgb_frames)} frames, {len(gif_data)//1024}KB")
+    gif_data = frames_to_gif(frames, durations)
+    print(f"GIF created! {len(frames)} frames, {len(gif_data)//1024}KB")
     return gif_data
 
 def upload_image_to_linkedin(image_data):
