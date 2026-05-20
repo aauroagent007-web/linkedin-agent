@@ -8,6 +8,7 @@ import base64
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 import io
+import math
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 LINKEDIN_ACCESS_TOKEN = os.environ["LINKEDIN_ACCESS_TOKEN"]
@@ -63,6 +64,104 @@ DAILY_TOPICS = [
     "AI Agent Sandboxing Techniques",
 ]
 
+# Icon definitions — drawn with PIL primitives
+ICONS = {
+    "shield":   lambda d,x,y,s,c: _icon_shield(d,x,y,s,c),
+    "brain":    lambda d,x,y,s,c: _icon_brain(d,x,y,s,c),
+    "lock":     lambda d,x,y,s,c: _icon_lock(d,x,y,s,c),
+    "eye":      lambda d,x,y,s,c: _icon_eye(d,x,y,s,c),
+    "network":  lambda d,x,y,s,c: _icon_network(d,x,y,s,c),
+    "warning":  lambda d,x,y,s,c: _icon_warning(d,x,y,s,c),
+    "gear":     lambda d,x,y,s,c: _icon_gear(d,x,y,s,c),
+    "check":    lambda d,x,y,s,c: _icon_check(d,x,y,s,c),
+    "search":   lambda d,x,y,s,c: _icon_search(d,x,y,s,c),
+    "monitor":  lambda d,x,y,s,c: _icon_monitor(d,x,y,s,c),
+    "robot":    lambda d,x,y,s,c: _icon_robot(d,x,y,s,c),
+    "database": lambda d,x,y,s,c: _icon_database(d,x,y,s,c),
+}
+
+SECTION_ICONS = [
+    "shield","brain","lock","eye",
+    "network","warning","gear","check",
+    "search","monitor","robot","database",
+    "shield","brain","lock","eye",
+    "network","warning",
+]
+
+def _icon_shield(d,x,y,s,c):
+    pts = [(x+s//2,y),(x+s,y+s//3),(x+s,y+s*2//3),(x+s//2,y+s),(x,y+s*2//3),(x,y+s//3)]
+    d.polygon(pts, outline=c, fill=(*c[:3],30) if len(c)==4 else None)
+    d.line([(x+s//2,y+s//3),(x+s//3,y+s//2),(x+s//2,y+s*2//3)], fill=c, width=2)
+
+def _icon_brain(d,x,y,s,c):
+    d.ellipse([(x,y+s//4),(x+s,y+s*3//4)], outline=c, width=2)
+    d.line([(x+s//2,y+s//4),(x+s//2,y+s*3//4)], fill=c, width=1)
+    d.arc([(x+s//4,y),(x+s*3//4,y+s//2)], 180, 0, fill=c, width=2)
+
+def _icon_lock(d,x,y,s,c):
+    d.rectangle([(x+s//4,y+s//2),(x+s*3//4,y+s)], outline=c, width=2)
+    d.arc([(x+s//4,y+s//6),(x+s*3//4,y+s*2//3)], 180, 0, fill=c, width=2)
+    d.ellipse([(x+s//2-3,y+s*2//3-3),(x+s//2+3,y+s*2//3+3)], fill=c)
+
+def _icon_eye(d,x,y,s,c):
+    d.arc([(x,y+s//4),(x+s,y+s*3//4)], 0, 180, fill=c, width=2)
+    d.arc([(x,y+s//4),(x+s,y+s*3//4)], 180, 360, fill=c, width=2)
+    d.ellipse([(x+s//2-s//6,y+s//2-s//6),(x+s//2+s//6,y+s//2+s//6)], fill=c)
+
+def _icon_network(d,x,y,s,c):
+    cx,cy = x+s//2, y+s//2
+    d.ellipse([(cx-4,cy-4),(cx+4,cy+4)], fill=c)
+    for ang in [0,72,144,216,288]:
+        rad = math.radians(ang)
+        ex,ey = int(cx+s//3*math.cos(rad)), int(cy+s//3*math.sin(rad))
+        d.line([(cx,cy),(ex,ey)], fill=c, width=1)
+        d.ellipse([(ex-3,ey-3),(ex+3,ey+3)], fill=c)
+
+def _icon_warning(d,x,y,s,c):
+    d.polygon([(x+s//2,y),(x+s,y+s),(x,y+s)], outline=c, width=2)
+    d.line([(x+s//2,y+s//3),(x+s//2,y+s*2//3)], fill=c, width=2)
+    d.ellipse([(x+s//2-2,y+s*3//4-2),(x+s//2+2,y+s*3//4+2)], fill=c)
+
+def _icon_gear(d,x,y,s,c):
+    cx,cy = x+s//2, y+s//2
+    d.ellipse([(cx-s//4,cy-s//4),(cx+s//4,cy+s//4)], outline=c, width=2)
+    for ang in range(0,360,45):
+        rad = math.radians(ang)
+        x1 = int(cx+s//4*math.cos(rad)); y1 = int(cy+s//4*math.sin(rad))
+        x2 = int(cx+s//3*math.cos(rad)); y2 = int(cy+s//3*math.sin(rad))
+        d.line([(x1,y1),(x2,y2)], fill=c, width=3)
+
+def _icon_check(d,x,y,s,c):
+    d.ellipse([(x,y),(x+s,y+s)], outline=c, width=2)
+    d.line([(x+s//4,y+s//2),(x+s*2//5,y+s*2//3),(x+s*3//4,y+s//3)], fill=c, width=2)
+
+def _icon_search(d,x,y,s,c):
+    d.ellipse([(x,y),(x+s*2//3,y+s*2//3)], outline=c, width=2)
+    d.line([(x+s*2//3-3,y+s*2//3-3),(x+s,y+s)], fill=c, width=3)
+
+def _icon_monitor(d,x,y,s,c):
+    d.rectangle([(x,y),(x+s,y+s*3//4)], outline=c, width=2)
+    d.line([(x+s//2,y+s*3//4),(x+s//2,y+s)], fill=c, width=2)
+    d.line([(x+s//4,y+s),(x+s*3//4,y+s)], fill=c, width=2)
+
+def _icon_robot(d,x,y,s,c):
+    d.rectangle([(x+s//4,y),(x+s*3//4,y+s//3)], outline=c, width=2)
+    d.rectangle([(x+s//6,y+s//3),(x+s*5//6,y+s*4//5)], outline=c, width=2)
+    d.ellipse([(x+s//3-3,y+s//6-3),(x+s//3+3,y+s//6+3)], fill=c)
+    d.ellipse([(x+s*2//3-3,y+s//6-3),(x+s*2//3+3,y+s//6+3)], fill=c)
+
+def _icon_database(d,x,y,s,c):
+    d.ellipse([(x,y),(x+s,y+s//4)], outline=c, width=2)
+    d.rectangle([(x,y+s//8),(x+s,y+s*3//4)], fill=None, outline=None)
+    d.line([(x,y+s//8),(x,y+s*3//4)], fill=c, width=2)
+    d.line([(x+s,y+s//8),(x+s,y+s*3//4)], fill=c, width=2)
+    d.arc([(x,y+s//2),(x+s,y+s)], 0, 180, fill=c, width=2)
+    d.arc([(x,y+s//4),(x+s,y+s*5//8)], 0, 180, fill=c, width=2)
+
+def draw_icon(draw, name, x, y, size, color):
+    fn = ICONS.get(name, ICONS["shield"])
+    fn(draw, x, y, size, color)
+
 def get_daily_topic():
     day = datetime.now().timetuple().tm_yday
     return DAILY_TOPICS[day % len(DAILY_TOPICS)]
@@ -86,20 +185,15 @@ def text_in_box(draw, text, x, y, max_w, max_h, font, color,
         draw.text((x+padding, cy), line, font=font, fill=color)
         cy += line_h
 
-def load_profile_image(size=80):
-    """Load and crop profile image into a circle"""
+def load_profile_image(size=100):
     try:
         resp = requests.get(PROFILE_IMAGE_URL, timeout=15)
         resp.raise_for_status()
         profile = Image.open(io.BytesIO(resp.content)).convert("RGB")
         profile = profile.resize((size, size), Image.LANCZOS)
-
-        # Create circular mask
         mask = Image.new("L", (size, size), 0)
         md = ImageDraw.Draw(mask)
         md.ellipse([(0,0),(size,size)], fill=255)
-
-        # Apply mask
         result = Image.new("RGBA", (size, size), (0,0,0,0))
         result.paste(profile, (0,0))
         result.putalpha(mask)
@@ -110,20 +204,20 @@ def load_profile_image(size=80):
         return None
 
 # ── Colors ────────────────────────────────────────────────────────────────────
-BG        = (8, 10, 20)
-BG2       = (14, 18, 35)
-BG3       = (20, 25, 48)
+BG        = (8, 12, 28)
+BG2       = (12, 16, 36)
+BG3       = (18, 24, 50)
 WHITE     = (255, 255, 255)
-OFF_WHITE = (230, 235, 255)
-GRAY      = (170, 175, 200)
-DARK_GRAY = (45, 50, 75)
+OFF_WHITE = (220, 230, 255)
+GRAY      = (160, 170, 200)
+DARK_GRAY = (40, 48, 80)
 
 ACCENT_SETS = [
-    {"P": (0,255,180),   "S": (0,180,255),  "H": (255,220,0)},
-    {"P": (180,80,255),  "S": (255,50,150), "H": (255,220,0)},
-    {"P": (50,220,255),  "S": (0,150,255),  "H": (255,150,50)},
-    {"P": (50,255,150),  "S": (0,200,100),  "H": (255,220,0)},
-    {"P": (255,120,120), "S": (220,60,60),  "H": (255,200,0)},
+    {"P":(0,200,255),  "S":(0,255,180), "H":(255,220,0), "D":(30,40,80)},
+    {"P":(180,80,255), "S":(255,50,150),"H":(255,220,0), "D":(40,20,60)},
+    {"P":(50,220,255), "S":(0,180,255), "H":(255,150,50),"D":(20,35,60)},
+    {"P":(50,255,150), "S":(0,220,120), "H":(255,220,0), "D":(15,40,30)},
+    {"P":(255,130,50), "S":(220,80,0),  "H":(255,220,0), "D":(50,25,10)},
 ]
 
 # ── AI ────────────────────────────────────────────────────────────────────────
@@ -140,37 +234,29 @@ def ai_generate_post(subtopic):
             {"role": "user", "content":
                 f"Write a detailed LinkedIn post about: {subtopic}\n\n"
                 f"STRUCTURE:\n"
-                f"1. Hook: start with emoji + powerful title\n"
-                f"2. 2-3 context lines explaining why this matters\n"
+                f"1. Hook: emoji + powerful title\n"
+                f"2. 2-3 context lines\n"
                 f"3. Problem list (5-6 emoji bullets)\n"
-                f"4. One powerful insight line\n"
-                f"5. Solution list (5 lightning emoji bullets)\n"
-                f"6. Simple ASCII architecture with | arrows\n"
-                f"7. Four technical sections with emoji header + bullet points\n"
-                f"8. Goals (5-6 checkmark lines)\n"
-                f"9. Preferred Stack line\n"
-                f"10. Future vision line\n"
-                f"11. End with 12-15 relevant hashtags on the very last line\n\n"
-                f"STRICT RULES:\n"
-                f"- NO about me section\n"
-                f"- NO reach out or contact info\n"
-                f"- NO markdown (##, **, __, *)\n"
-                f"- Plain text + emojis only\n"
-                f"- Hashtags ONLY at the very end\n"
-                f"- 400-600 words total"}
+                f"4. Powerful insight\n"
+                f"5. Solution list (5 bullets)\n"
+                f"6. ASCII architecture\n"
+                f"7. Four technical sections\n"
+                f"8. Goals (5-6 checkmarks)\n"
+                f"9. Preferred Stack\n"
+                f"10. Future vision\n"
+                f"11. End with 12-15 hashtags\n\n"
+                f"NO about me. NO contact. NO markdown. 400-600 words."}
         ],
         max_tokens=1500,
     )
     content = response.choices[0].message.content.strip()
     for ch in ["##","**","__","# ","* "]:
         content = content.replace(ch, "")
-    lines = content.split('\n')
     skip_kw = ["reach out","contact me","about me","i am aurobinda",
-                "aurobindaojha@","gmail.com","collaborat","inquir",
-                "freelance","remote","contract","opportunity"]
-    clean = [l for l in lines
+                "aurobindaojha@","gmail.com","collaborat","freelance"]
+    lines = [l for l in content.split('\n')
              if not any(k in l.lower() for k in skip_kw)]
-    return '\n'.join(clean).strip()
+    return '\n'.join(lines).strip()
 
 def ai_generate_infographic_data(subtopic):
     response = openai_client.chat.completions.create(
@@ -178,34 +264,31 @@ def ai_generate_infographic_data(subtopic):
         messages=[
             {"role": "user", "content":
                 f"Create infographic data for: {subtopic}\n\n"
-                f"Reply JSON only — very short text values:\n"
+                f"Reply JSON only:\n"
                 f"{{\n"
-                f"  \"main_title\": \"HOW I SECURE [TOPIC] (caps max 5 words)\",\n"
-                f"  \"subtitle_pills\": [\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\"],\n"
-                f"  \"threats\": [\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\"],\n"
-                f"  \"arch_layers\": [\n"
-                f"    {{\"name\":\"max 4 words\",\"components\":[\"max 3 words\",\"max 3 words\",\"max 3 words\"]}}\n"
+                f"  \"main_title\": \"TOPIC COMPLETE DEEP DIVE (caps max 5 words)\",\n"
+                f"  \"tagline\": \"short tagline max 8 words\",\n"
+                f"  \"top_badges\": [\n"
+                f"    {{\"icon\":\"shield\",\"label\":\"max 2 words\"}},\n"
+                f"    {{\"icon\":\"eye\",\"label\":\"max 2 words\"}},\n"
+                f"    {{\"icon\":\"monitor\",\"label\":\"max 2 words\"}},\n"
+                f"    {{\"icon\":\"warning\",\"label\":\"max 2 words\"}}\n"
                 f"  ],\n"
-                f"  \"left_panel\": {{\n"
-                f"    \"title\": \"ACCESS FLOW\",\n"
-                f"    \"steps\": [\"max 3 words\",\"max 3 words\",\"max 3 words\",\"max 3 words\",\"max 3 words\"]\n"
-                f"  }},\n"
-                f"  \"right_panel\": {{\n"
-                f"    \"title\": \"CONTROLS\",\n"
-                f"    \"items\": [\"max 3 words\",\"max 3 words\",\"max 3 words\",\"max 3 words\",\"max 3 words\"]\n"
-                f"  }},\n"
-                f"  \"security_layer\": {{\n"
-                f"    \"title\": \"AUTONOMOUS PROTECTION LAYER\",\n"
-                f"    \"components\": [\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\"]\n"
-                f"  }},\n"
-                f"  \"goals\": [\"max 3 words\",\"max 3 words\",\"max 3 words\",\"max 3 words\",\"max 3 words\",\"max 3 words\"],\n"
-                f"  \"stack\": [\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\",\"max 2 words\"],\n"
-                f"  \"why_works\": [\"max 5 words\",\"max 5 words\",\"max 5 words\",\"max 5 words\",\"max 5 words\"],\n"
-                f"  \"principles\": [\"max 3 words\",\"max 3 words\",\"max 3 words\",\"max 3 words\",\"max 3 words\"]\n"
+                f"  \"sections\": [\n"
+                f"    {{\n"
+                f"      \"number\": 1,\n"
+                f"      \"title\": \"Section Title max 4 words\",\n"
+                f"      \"icon\": \"one of: shield,brain,lock,eye,network,warning,gear,check,search,monitor,robot,database\",\n"
+                f"      \"bullets\": [\"max 5 words\",\"max 5 words\",\"max 5 words\",\"max 5 words\"]\n"
+                f"    }}\n"
+                f"  ],\n"
+                f"  \"bottom_quote\": \"Powerful closing quote max 10 words\"\n"
                 f"}}\n\n"
-                f"arch_layers: exactly 5. All text VERY SHORT as specified."}
+                f"Create exactly 9 sections specific to {subtopic}.\n"
+                f"Each section has exactly 4 bullet points.\n"
+                f"Use varied icons from the list."}
         ],
-        max_tokens=1000,
+        max_tokens=1500,
     )
     raw = response.choices[0].message.content.strip()
     raw = raw.replace("```json","").replace("```","").strip()
@@ -218,20 +301,22 @@ def load_fonts():
         B = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
         R = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
         return {
-            "h1":   ImageFont.truetype(B, 48),
-            "h2":   ImageFont.truetype(B, 32),
-            "h3":   ImageFont.truetype(B, 22),
-            "h4":   ImageFont.truetype(B, 17),
+            "h1":   ImageFont.truetype(B, 52),
+            "h2":   ImageFont.truetype(B, 36),
+            "h3":   ImageFont.truetype(B, 24),
+            "h4":   ImageFont.truetype(B, 18),
+            "h5":   ImageFont.truetype(B, 15),
             "body": ImageFont.truetype(R, 15),
             "sm":   ImageFont.truetype(R, 13),
+            "xs":   ImageFont.truetype(R, 11),
         }
     except:
         d = ImageFont.load_default()
-        return {k: d for k in ["h1","h2","h3","h4","body","sm"]}
+        return {k: d for k in ["h1","h2","h3","h4","h5","body","sm","xs"]}
 
 # ── Draw Helpers ──────────────────────────────────────────────────────────────
 
-def rbox(draw, x0, y0, x1, y1, fill=None, outline=None, r=8, w=2):
+def rbox(draw, x0, y0, x1, y1, fill=None, outline=None, r=6, w=1):
     try:
         draw.rounded_rectangle([(x0,y0),(x1,y1)],
                                 radius=r, fill=fill,
@@ -245,10 +330,6 @@ def cx_text(draw, text, cx, y, font, color):
     w = bbox[2]-bbox[0]
     draw.text((cx-w//2, y), text, font=font, fill=color)
 
-def arrow_down(draw, x, y, color, size=10):
-    draw.line([(x,y),(x,y+size)], fill=color, width=2)
-    draw.polygon([(x-5,y+size),(x+5,y+size),(x,y+size+8)], fill=color)
-
 # ── Infographic ───────────────────────────────────────────────────────────────
 
 def create_infographic(subtopic, data):
@@ -260,334 +341,222 @@ def create_infographic(subtopic, data):
     P, S, H = C["P"], C["S"], C["H"]
     fonts   = load_fonts()
 
-    # Load profile image once
-    profile_img = load_profile_image(size=90)
+    profile_img = load_profile_image(size=110)
 
-    H_HDR    = 155
-    H_PILLS  = 35
-    H_THREAT = 70
-    H_3COL   = 750
-    H_SECLYR = 105
-    H_BOTTOM = 230
-    H_FOOTER = 80
-    TOTAL_H  = (H_HDR+H_PILLS+H_THREAT+H_3COL+
-                H_SECLYR+H_BOTTOM+H_FOOTER+20)
+    # Layout
+    H_HEADER = 180
+    H_BADGES = 55
+    H_TAGLINE = 40
+    ROWS      = 3
+    COLS      = 3
+    CELL_H    = 280
+    CELL_PAD  = 6
+    CELL_W    = (W - (COLS+1)*CELL_PAD) // COLS
+    GRID_H    = ROWS * CELL_H + (ROWS+1)*CELL_PAD
+    H_FOOTER  = 90
+    TOTAL_H   = H_HEADER+H_BADGES+H_TAGLINE+GRID_H+H_FOOTER
 
     img  = Image.new("RGB", (W, TOTAL_H), BG)
     draw = ImageDraw.Draw(img)
 
-    # Gradient BG
+    # Background gradient
     for y in range(TOTAL_H):
         t = y/TOTAL_H
         draw.line([(0,y),(W,y)], fill=(
-            int(BG[0]+t*8), int(BG[1]+t*8), int(BG[2]+t*15)))
+            int(BG[0]+t*6), int(BG[1]+t*6), int(BG[2]+t*10)))
 
-    # Grid
-    for x in range(0, W, 55):
-        draw.line([(x,0),(x,TOTAL_H)], fill=(14,17,32), width=1)
-    for y in range(0, TOTAL_H, 55):
-        draw.line([(0,y),(W,y)], fill=(14,17,32), width=1)
+    # Subtle grid pattern
+    for x in range(0, W, 45):
+        draw.line([(x,0),(x,TOTAL_H)], fill=(13,17,38), width=1)
+    for y in range(0, TOTAL_H, 45):
+        draw.line([(0,y),(W,y)], fill=(13,17,38), width=1)
 
     Y = 0
 
     # ── HEADER ────────────────────────────────────────────────────────────
-    for y in range(H_HDR):
-        t = y/H_HDR
-        r = int(max(P[0],S[0])*0.4*(1-t)+min(P[0],S[0])*t)
-        g = int(max(P[1],S[1])*0.4*(1-t)+min(P[1],S[1])*t)
-        b = int(max(P[2],S[2])*0.4*(1-t)+min(P[2],S[2])*t)
+    # Gradient header
+    for y in range(H_HEADER):
+        t = y/H_HEADER
+        r = int(P[0]*0.6*(1-t) + BG[0]*t)
+        g = int(P[1]*0.6*(1-t) + BG[1]*t)
+        b = int(P[2]*0.6*(1-t) + BG[2]*t)
         draw.line([(0,y),(W,y)], fill=(
             max(0,min(255,r)),max(0,min(255,g)),max(0,min(255,b))))
 
-    cx_text(draw, "✦  AUROBINDA OJHA  ✦",
-            W//2, Y+6, fonts["body"], WHITE)
-
-    title = data.get("main_title","HOW I SECURE AI SYSTEMS")
+    # Left side — Title
+    title = data.get("main_title","AI SECURITY DEEP DIVE")
     words = title.split()
     mid   = max(1, len(words)//2)
     l1    = " ".join(words[:mid])
     l2    = " ".join(words[mid:])
 
-    cx_text(draw, l1, W//2, Y+28, fonts["h1"], WHITE)
+    draw.text((20, Y+15), l1, font=fonts["h1"], fill=WHITE)
+    draw.text((20, Y+72), l2, font=fonts["h1"], fill=P)
 
-    ws  = l2.split()
-    bb2 = draw.textbbox((0,0), l2, font=fonts["h1"])
-    tw2 = bb2[2]-bb2[0]
-    if len(ws) >= 2:
-        a   = " ".join(ws[:len(ws)//2])
-        b_  = " ".join(ws[len(ws)//2:])
-        bba = draw.textbbox((0,0), a+" ", font=fonts["h1"])
-        xa  = (W-tw2)//2
-        draw.text((xa, Y+82), a, font=fonts["h1"], fill=P)
-        draw.text((xa+bba[2]-bba[0], Y+82), " "+b_,
-                  font=fonts["h1"], fill=H)
-    else:
-        cx_text(draw, l2, W//2, Y+82, fonts["h1"], P)
+    # Underline
+    bb = draw.textbbox((0,0), l2, font=fonts["h1"])
+    draw.rectangle([(20, Y+125),(20+bb[2]-bb[0]+40, Y+129)], fill=H)
 
-    Y += H_HDR
+    draw.text((22, Y+138), "CYBERSECURITY RESEARCHER & AI EXPERT",
+              font=fonts["h5"], fill=GRAY)
 
-    # ── PILLS ─────────────────────────────────────────────────────────────
-    pills  = data.get("subtitle_pills",[])
-    pill_x = 30
-    for pill in pills[:5]:
-        bb = draw.textbbox((0,0), pill, font=fonts["sm"])
-        pw = bb[2]-bb[0]+20
-        rbox(draw, pill_x, Y+5, pill_x+pw, Y+28,
-             fill=(25,30,55), outline=P, r=12, w=1)
-        draw.text((pill_x+10, Y+8), pill,
-                  font=fonts["sm"], fill=OFF_WHITE)
-        pill_x += pw+8
-    Y += H_PILLS
-
-    # ── THREATS ───────────────────────────────────────────────────────────
-    rbox(draw, 0, Y, W, Y+H_THREAT, fill=(16,20,40))
-    cx_text(draw, "▸  TOP SECURITY THREATS  ◂",
-            W//2, Y+5, fonts["sm"], P)
-    threats = data.get("threats",[])[:6]
-    tw3 = (W-40) // max(len(threats),1)
-    for i, t in enumerate(threats):
-        tx = 20+i*tw3
-        rbox(draw, tx, Y+22, tx+tw3-6, Y+H_THREAT-4,
-             fill=(22,27,50), outline=P, r=6, w=1)
-        text_in_box(draw, ft(t,14), tx, Y+22,
-                    tw3-6, H_THREAT-26,
-                    fonts["sm"], WHITE, line_h=14, padding=5)
-    Y += H_THREAT
-
-    # ── 3-COLUMN ──────────────────────────────────────────────────────────
-    LW     = 178
-    RW     = 178
-    MW     = W-LW-RW-18
-    LX     = 8
-    MX     = LX+LW+5
-    RX     = MX+MW+5
-    COL_H  = H_3COL
-    arch_y = Y
-
-    # LEFT — Access Flow
-    rbox(draw, LX, arch_y, LX+LW, arch_y+COL_H,
-         fill=BG2, outline=P, r=8, w=1)
-    draw.text((LX+8, arch_y+7),
-              data.get("left_panel",{}).get("title","ACCESS FLOW"),
-              font=fonts["h4"], fill=P)
-    draw.line([(LX+6,arch_y+26),(LX+LW-6,arch_y+26)], fill=DARK_GRAY)
-    sy = arch_y+32
-    for step in data.get("left_panel",{}).get("steps",[])[:6]:
-        rbox(draw, LX+6, sy, LX+LW-6, sy+38,
-             fill=BG3, outline=DARK_GRAY, r=5, w=1)
-        text_in_box(draw, ft(step,20), LX+6, sy,
-                    LW-12, 38, fonts["sm"], WHITE,
-                    line_h=13, padding=5)
-        sy += 44
-        if sy < arch_y+COL_H-40:
-            arrow_down(draw, LX+LW//2, sy-6, P, size=6)
-
-    # LEFT — Principles
-    pr_y = arch_y+COL_H+5
-    rbox(draw, LX, pr_y, LX+LW, pr_y+185,
-         fill=BG2, outline=S, r=8, w=1)
-    draw.text((LX+8, pr_y+7), "PRINCIPLES",
-              font=fonts["h4"], fill=S)
-    draw.line([(LX+6,pr_y+26),(LX+LW-6,pr_y+26)], fill=DARK_GRAY)
-    py3 = pr_y+32
-    for pr in data.get("principles",[])[:5]:
-        draw.text((LX+8, py3), f"◆ {ft(pr,22)}",
-                  font=fonts["sm"], fill=OFF_WHITE)
-        py3 += 22
-
-    # RIGHT — Controls
-    rbox(draw, RX, arch_y, RX+RW, arch_y+COL_H,
-         fill=BG2, outline=H, r=8, w=1)
-    draw.text((RX+8, arch_y+7),
-              data.get("right_panel",{}).get("title","CONTROLS"),
-              font=fonts["h4"], fill=H)
-    draw.line([(RX+6,arch_y+26),(RX+RW-6,arch_y+26)], fill=DARK_GRAY)
-    ri_y = arch_y+32
-    for item in data.get("right_panel",{}).get("items",[])[:6]:
-        rbox(draw, RX+6, ri_y, RX+RW-6, ri_y+55,
-             fill=BG3, outline=H, r=5, w=1)
-        text_in_box(draw, ft(item,22), RX+6, ri_y,
-                    RW-12, 55, fonts["sm"], WHITE,
-                    line_h=14, padding=6)
-        ri_y += 62
-
-    # RIGHT — Goals
-    go_y = arch_y+COL_H+5
-    rbox(draw, RX, go_y, RX+RW, go_y+185,
-         fill=BG2, outline=H, r=8, w=1)
-    draw.text((RX+8, go_y+7), "GOALS",
-              font=fonts["h4"], fill=H)
-    draw.line([(RX+6,go_y+26),(RX+RW-6,go_y+26)], fill=DARK_GRAY)
-    gy2 = go_y+32
-    for goal in data.get("goals",[])[:6]:
-        draw.text((RX+8, gy2), f"✓  {ft(goal,22)}",
-                  font=fonts["sm"], fill=OFF_WHITE)
-        gy2 += 22
-
-    # CENTER — Architecture
-    rbox(draw, MX, arch_y, MX+MW, arch_y+COL_H,
-         fill=BG2, outline=S, r=8, w=1)
-    cx_text(draw, "PRODUCTION INFRASTRUCTURE",
-            MX+MW//2, arch_y+7, fonts["h4"], S)
-    draw.line([(MX+6,arch_y+26),(MX+MW-6,arch_y+26)], fill=DARK_GRAY)
-
-    layers   = data.get("arch_layers",[])
-    lyr_h    = (COL_H-36) // max(len(layers),1) - 6
-    lyr_y    = arch_y+32
-    lyr_cols = [P,S,H,(100,210,255),(180,255,120)]
-    for idx, layer in enumerate(layers[:5]):
-        lc = lyr_cols[idx%5]
-        rbox(draw, MX+6, lyr_y, MX+MW-6, lyr_y+lyr_h,
-             fill=(14,19,38), outline=lc, r=6, w=1)
-        draw.text((MX+12, lyr_y+5),
-                  ft(layer.get("name",""),28),
-                  font=fonts["h4"], fill=lc)
-        comps = layer.get("components",[])
-        draw.text((MX+12, lyr_y+24),
-                  "  •  ".join(ft(c,14) for c in comps[:3]),
-                  font=fonts["sm"], fill=OFF_WHITE)
-        lyr_y += lyr_h+6
-        if idx < len(layers)-1:
-            arrow_down(draw, MX+MW//2, lyr_y-4, S, size=5)
-            lyr_y += 6
-
-    Y += COL_H
-
-    # ── SECURITY LAYER ────────────────────────────────────────────────────
-    rbox(draw, 8, Y, W-8, Y+H_SECLYR,
-         fill=(14,18,38), outline=P, r=8, w=2)
-    sl = data.get("security_layer",{})
-    cx_text(draw, sl.get("title","AUTONOMOUS PROTECTION"),
-            W//2, Y+7, fonts["h4"], P)
-    draw.line([(16,Y+26),(W-16,Y+26)], fill=DARK_GRAY)
-    sc  = sl.get("components",[])[:5]
-    scw = (W-30) // max(len(sc),1)
-    for i, comp in enumerate(sc):
-        sx2 = 15+i*scw
-        rbox(draw, sx2+2, Y+32, sx2+scw-4, Y+H_SECLYR-6,
-             fill=(20,26,52), outline=S, r=6, w=1)
-        text_in_box(draw, ft(comp,12), sx2+2, Y+32,
-                    scw-6, H_SECLYR-38,
-                    fonts["sm"], WHITE, line_h=14, padding=6)
-    Y += H_SECLYR+5
-
-    # ── BOTTOM 3 BOXES ────────────────────────────────────────────────────
-    BW   = (W-25)//3
-    BX1  = 8
-    BX2  = BX1+BW+5
-    BX3  = BX2+BW+5
-    BH   = H_BOTTOM
-
-    # Stack
-    rbox(draw, BX1, Y, BX1+BW, Y+BH,
-         fill=BG2, outline=DARK_GRAY, r=8)
-    draw.text((BX1+10, Y+8), "🔥 PREFERRED STACK",
-              font=fonts["h4"], fill=H)
-    draw.line([(BX1+8,Y+27),(BX1+BW-8,Y+27)], fill=DARK_GRAY)
-    bsx = BX1+10
-    bsy = Y+34
-    for tech in data.get("stack",[])[:10]:
-        bb  = draw.textbbox((0,0), tech, font=fonts["sm"])
-        bw2 = bb[2]-bb[0]+12
-        if bsx+bw2 > BX1+BW-8:
-            bsx = BX1+10
-            bsy += 26
-        if bsy+22 > Y+BH-8:
-            break
-        rbox(draw, bsx, bsy, bsx+bw2, bsy+20,
-             fill=(22,28,55), outline=P, r=4, w=1)
-        draw.text((bsx+6, bsy+3), tech,
-                  font=fonts["sm"], fill=P)
-        bsx += bw2+5
-
-    # Why Works
-    rbox(draw, BX2, Y, BX2+BW, Y+BH,
-         fill=BG2, outline=DARK_GRAY, r=8)
-    draw.text((BX2+10, Y+8), "✅ WHY THIS WORKS",
-              font=fonts["h4"], fill=P)
-    draw.line([(BX2+8,Y+27),(BX2+BW-8,Y+27)], fill=DARK_GRAY)
-    wy2 = Y+34
-    for reason in data.get("why_works",[])[:5]:
-        if wy2+18 > Y+BH-8:
-            break
-        text_in_box(draw, f"✓  {ft(reason,30)}",
-                    BX2, wy2, BW, 22,
-                    fonts["sm"], OFF_WHITE,
-                    line_h=15, padding=10)
-        wy2 += 28
-
-    # ── ABOUT ME with real profile photo ──────────────────────────────────
-    rbox(draw, BX3, Y, BX3+BW, Y+BH,
-         fill=BG2, outline=DARK_GRAY, r=8)
-    draw.text((BX3+10, Y+8), "👤 ABOUT ME",
-              font=fonts["h4"], fill=S)
-    draw.line([(BX3+8,Y+27),(BX3+BW-8,Y+27)], fill=DARK_GRAY)
-
-    prof_size = 90
-    px_pos    = BX3 + (BW - prof_size) // 2
-    py_pos    = Y + 34
-
+    # Right side — Profile image
     if profile_img is not None:
-        # Paste circular profile photo
         img_rgba = img.convert("RGBA")
-        img_rgba.paste(profile_img, (px_pos, py_pos), profile_img)
+        prof_x = W - 140
+        prof_y = Y + 20
+        img_rgba.paste(profile_img, (prof_x, prof_y), profile_img)
         img = img_rgba.convert("RGB")
         draw = ImageDraw.Draw(img)
+
+        # Accent ring
+        draw.ellipse([
+            (prof_x-4, prof_y-4),
+            (prof_x+114, prof_y+114)
+        ], outline=P, width=3)
+
+        # Name beside photo
+        draw.text((W-240, Y+35), "AUROBINDA OJHA",
+                  font=fonts["h4"], fill=WHITE)
+        draw.text((W-240, Y+58), "Cybersecurity Expert",
+                  font=fonts["sm"], fill=P)
+        draw.text((W-240, Y+78), "Independent Researcher",
+                  font=fonts["sm"], fill=GRAY)
     else:
-        # Fallback circle
-        draw.ellipse([(px_pos, py_pos),
-                      (px_pos+prof_size, py_pos+prof_size)],
-                     fill=BG3, outline=S, width=2)
-        cx_text(draw, "AO", px_pos+prof_size//2,
-                py_pos+prof_size//3, fonts["h3"], S)
+        draw.text((W-240, Y+35), "AUROBINDA OJHA",
+                  font=fonts["h4"], fill=WHITE)
+        draw.text((W-240, Y+58), "Cybersecurity Expert",
+                  font=fonts["sm"], fill=P)
 
-    # Accent ring around photo
-    draw.ellipse([
-        (px_pos-3, py_pos-3),
-        (px_pos+prof_size+3, py_pos+prof_size+3)
-    ], outline=S, width=2)
+    Y += H_HEADER
 
-    name_y = py_pos + prof_size + 10
-    cx_text(draw, "Aurobinda Ojha",
-            BX3+BW//2, name_y, fonts["h4"], WHITE)
-    cx_text(draw, "Independent Researcher",
-            BX3+BW//2, name_y+22, fonts["sm"], GRAY)
-    cx_text(draw, "Cybersecurity & Agentic AI",
-            BX3+BW//2, name_y+40, fonts["sm"], GRAY)
+    # ── TOP BADGES ────────────────────────────────────────────────────────
+    rbox(draw, 0, Y, W, Y+H_BADGES, fill=(14,18,40))
+    badges = data.get("top_badges",[])
+    bw = W // max(len(badges),1)
+    for i, badge in enumerate(badges[:4]):
+        bx = i*bw + bw//2
+        icon_name = badge.get("icon","shield")
+        draw_icon(draw, icon_name, bx-24, Y+8, 20, P)
+        draw.text((bx-10, Y+9), ft(badge.get("label",""),12),
+                  font=fonts["sm"], fill=WHITE)
+        if i < len(badges)-1:
+            draw.line([(i+1)*bw, Y+10, (i+1)*bw, Y+H_BADGES-10],
+                      fill=DARK_GRAY, width=1)
+    Y += H_BADGES
 
-    rl_y = name_y+62
-    rl_x = BX3+10
-    for role in ["Cybersecurity","Agentic AI","LLMOps"]:
-        bb  = draw.textbbox((0,0), role, font=fonts["sm"])
-        rw2 = bb[2]-bb[0]+10
-        if rl_x+rw2 > BX3+BW-8:
-            rl_x = BX3+10
-            rl_y += 22
-        if rl_y+20 > Y+BH-8:
-            break
-        rbox(draw, rl_x, rl_y, rl_x+rw2, rl_y+18,
-             fill=(20,26,52), outline=S, r=4, w=1)
-        draw.text((rl_x+5, rl_y+2), role,
-                  font=fonts["sm"], fill=S)
-        rl_x += rw2+5
+    # ── TAGLINE ───────────────────────────────────────────────────────────
+    rbox(draw, 0, Y, W, Y+H_TAGLINE, fill=(10,14,32))
+    tagline = data.get("tagline","Protect. Detect. Respond. Secure.")
+    cx_text(draw, tagline.upper(), W//2, Y+12,
+            fonts["h5"], GRAY)
+    Y += H_TAGLINE
 
-    Y += BH+5
+    # ── GRID SECTIONS ─────────────────────────────────────────────────────
+    sections = data.get("sections",[])[:9]
+
+    for idx, section in enumerate(sections):
+        col = idx % COLS
+        row = idx // COLS
+        cx  = CELL_PAD + col*(CELL_W+CELL_PAD)
+        cy  = Y + CELL_PAD + row*(CELL_H+CELL_PAD)
+
+        color = [P,S,H,(100,200,255),(180,255,120),
+                 (255,150,80),(200,100,255),(80,220,180),(255,100,150)][idx%9]
+
+        # Cell background
+        rbox(draw, cx, cy, cx+CELL_W, cy+CELL_H,
+             fill=BG2, outline=color, r=8, w=2)
+
+        # Cell header bg
+        rbox(draw, cx, cy, cx+CELL_W, cy+52,
+             fill=C["D"] if "D" in C else BG3, r=8, w=0)
+        draw.rectangle([(cx, cy+40),(cx+CELL_W, cy+52)],
+                       fill=BG2)
+
+        # Number badge
+        draw.ellipse([(cx+10,cy+8),(cx+34,cy+32)], fill=color)
+        num = str(section.get("number",idx+1))
+        bbox = draw.textbbox((0,0), num, font=fonts["h5"])
+        nw = bbox[2]-bbox[0]
+        draw.text((cx+22-nw//2, cy+12), num,
+                  font=fonts["h5"], fill=(0,0,0))
+
+        # Icon
+        icon_name = section.get("icon","shield")
+        draw_icon(draw, icon_name, cx+CELL_W-42, cy+8, 28, color)
+
+        # Section title
+        title_text = ft(section.get("title","Section"),22)
+        draw.text((cx+40, cy+10), title_text,
+                  font=fonts["h5"], fill=color)
+
+        # Divider
+        draw.line([(cx+8, cy+52),(cx+CELL_W-8, cy+52)],
+                  fill=DARK_GRAY, width=1)
+
+        # Bullets
+        by = cy+60
+        for bullet in section.get("bullets",[])[:4]:
+            if by+18 > cy+CELL_H-10:
+                break
+            # Bullet dot
+            draw.ellipse([(cx+12,by+5),(cx+18,by+11)], fill=color)
+            # Bullet text
+            text_in_box(draw, ft(bullet,32),
+                        cx+22, by, CELL_W-30, 20,
+                        fonts["sm"], OFF_WHITE,
+                        line_h=14, padding=2)
+            by += 22
+
+    Y += GRID_H
 
     # ── FOOTER ────────────────────────────────────────────────────────────
+    # Dark footer bar
+    draw.rectangle([(0,Y),(W,Y+H_FOOTER)], fill=(8,10,22))
     draw.rectangle([(0,Y),(W,Y+3)], fill=P)
-    Y += 5
-    rbox(draw, 8, Y, W-8, Y+65,
-         fill=(12,15,32), outline=DARK_GRAY, r=8)
-    draw.text((20, Y+10),
-              "🛡️  LET'S BUILD SECURE AI INFRASTRUCTURE TOGETHER!",
-              font=fonts["h4"], fill=WHITE)
-    draw.text((20, Y+34), "📩  aurobindaojha@gmail.com",
-              font=fonts["body"], fill=P)
-    cx_text(draw, datetime.now().strftime("%B %d, %Y"),
-            W-120, Y+42, fonts["sm"], GRAY)
-    Y += 75
 
-    img = img.crop((0, 0, W, Y))
+    # Left — Profile small
+    if profile_img is not None:
+        small_prof = profile_img.resize((50,50), Image.LANCZOS)
+        img_rgba = img.convert("RGBA")
+        img_rgba.paste(small_prof, (15, Y+20), small_prof)
+        img = img_rgba.convert("RGB")
+        draw = ImageDraw.Draw(img)
+        draw.ellipse([(13,Y+18),(67,Y+72)], outline=P, width=2)
+        draw.text((75, Y+22), "AUROBINDA OJHA",
+                  font=fonts["h5"], fill=WHITE)
+        draw.text((75, Y+40), "Independent Researcher | Cybersecurity & Agentic AI",
+                  font=fonts["xs"], fill=GRAY)
+    else:
+        draw.text((20, Y+20), "AUROBINDA OJHA",
+                  font=fonts["h4"], fill=WHITE)
+
+    # Center — Quote
+    quote = data.get("bottom_quote","Secure AI. Protect the Future.")
+    cx_text(draw, f'"{quote}"', W//2, Y+30,
+            fonts["sm"], P)
+
+    # Right — Social icons placeholder
+    draw.text((W-280, Y+20), "Follow for more insights on",
+              font=fonts["xs"], fill=GRAY)
+    draw.text((W-280, Y+36), "Cybersecurity & Agentic AI",
+              font=fonts["xs"], fill=GRAY)
+
+    # LinkedIn icon
+    rbox(draw, W-95, Y+20, W-55, Y+55,
+         fill=(0,119,181), r=6, w=0)
+    draw.text((W-88, Y+28), "in", font=fonts["h5"], fill=WHITE)
+
+    # YouTube icon
+    rbox(draw, W-48, Y+20, W-8, Y+55,
+         fill=(200,0,0), r=6, w=0)
+    draw.text((W-40, Y+28), "▶", font=fonts["h5"], fill=WHITE)
+
+    # Bottom accent line
+    draw.rectangle([(0,Y+H_FOOTER-3),(W,Y+H_FOOTER)], fill=P)
+
+    img = img.crop((0, 0, W, TOTAL_H))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=96)
     buf.seek(0)
