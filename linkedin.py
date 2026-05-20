@@ -69,19 +69,19 @@ def ft(text, n):
     return text if len(text) <= n else text[:n-2]+".."
 
 # ── Colors ────────────────────────────────────────────────────────────────────
-BG = (8, 10, 20)
+BG  = (8, 10, 20)
 BG2 = (12, 15, 28)
 BG3 = (15, 18, 35)
 WHITE = (255, 255, 255)
-GRAY = (160, 160, 180)
+GRAY  = (160, 160, 180)
 DARK_GRAY = (40, 45, 65)
 
 ACCENT_SETS = [
-    {"primary": (0, 255, 180), "secondary": (0, 180, 255), "highlight": (255, 220, 0)},
-    {"primary": (180, 80, 255), "secondary": (255, 50, 150), "highlight": (255, 220, 0)},
-    {"primary": (50, 220, 255), "secondary": (0, 150, 255), "highlight": (255, 150, 50)},
-    {"primary": (50, 255, 150), "secondary": (0, 200, 100), "highlight": (255, 220, 0)},
-    {"primary": (255, 100, 100), "secondary": (220, 50, 50), "highlight": (255, 180, 0)},
+    {"primary": (0,255,180),  "secondary": (0,180,255),  "highlight": (255,220,0)},
+    {"primary": (180,80,255), "secondary": (255,50,150),  "highlight": (255,220,0)},
+    {"primary": (50,220,255), "secondary": (0,150,255),   "highlight": (255,150,50)},
+    {"primary": (50,255,150), "secondary": (0,200,100),   "highlight": (255,220,0)},
+    {"primary": (255,100,100),"secondary": (220,50,50),   "highlight": (255,180,0)},
 ]
 
 # ── AI Content ────────────────────────────────────────────────────────────────
@@ -92,28 +92,35 @@ def ai_generate_post(subtopic):
         messages=[
             {"role": "system", "content":
                 "You are Aurobinda Ojha, Independent Researcher on Cybersecurity and Agentic AI. "
-                "You write deep technical LinkedIn posts with architecture diagrams, "
-                "structured sections, and detailed insights."},
+                "You write deep technical LinkedIn posts. "
+                "NEVER use markdown like ##, **, __, or any markdown formatting. "
+                "Use plain text only with emojis for structure."},
             {"role": "user", "content":
                 f"Write a detailed long-form LinkedIn post about: {subtopic}\n\n"
                 f"STRUCTURE:\n"
-                f"1. 🚀 Hook title line\n"
+                f"1. 🚀 Hook title line (plain text, no ## or **)\n"
                 f"2. 2-3 context lines\n"
                 f"3. Problem list (5-6 bullets with emojis)\n"
                 f"4. One powerful insight line\n"
                 f"5. Solution list (5 ⚡ bullets)\n"
-                f"6. ASCII architecture diagram with │ arrows\n"
-                f"7. Four technical sections with emoji headers and • bullets\n"
-                f"8. 🎯 Goals (5-6 ✅)\n"
+                f"6. ASCII architecture diagram with | arrows\n"
+                f"7. Four technical sections with emoji headers and bullet points\n"
+                f"8. 🎯 Goals (5-6 checkmarks)\n"
                 f"9. 🔥 Preferred Stack\n"
                 f"10. Future vision line\n"
                 f"11. About me as Aurobinda Ojha + aurobindaojha@gmail.com\n"
                 f"12. 12-15 hashtags\n\n"
-                f"400-600 words. Highly technical."}
+                f"IMPORTANT: Plain text only. No ##, no **, no markdown at all. "
+                f"Use emojis for structure instead.\n"
+                f"400-600 words."}
         ],
         max_tokens=1500,
     )
-    return response.choices[0].message.content.strip()
+    content = response.choices[0].message.content.strip()
+    # Clean any markdown that slips through
+    content = content.replace("##", "").replace("**", "").replace("__", "")
+    content = content.replace("# ", "").replace("*", "")
+    return content
 
 def ai_generate_infographic_data(subtopic):
     response = openai_client.chat.completions.create(
@@ -123,30 +130,30 @@ def ai_generate_infographic_data(subtopic):
                 f"Create infographic data for: {subtopic}\n\n"
                 f"Reply JSON only:\n"
                 f"{{\n"
-                f"  \"main_title\": \"HOW I SECURE [TOPIC] (caps, max 6 words)\",\n"
-                f"  \"subtitle_pills\": [\"pill1 max 3 words\", \"pill2\", \"pill3\", \"pill4\", \"pill5\"],\n"
-                f"  \"threats\": [\"Threat 1\", \"Threat 2\", \"Threat 3\", \"Threat 4\", \"Threat 5\", \"Threat 6\"],\n"
+                f"  \"main_title\": \"HOW I SECURE [TOPIC] (caps max 6 words)\",\n"
+                f"  \"subtitle_pills\": [\"pill1 max 3 words\",\"pill2\",\"pill3\",\"pill4\",\"pill5\"],\n"
+                f"  \"threats\": [\"Threat1\",\"Threat2\",\"Threat3\",\"Threat4\",\"Threat5\",\"Threat6\"],\n"
                 f"  \"arch_layers\": [\n"
-                f"    {{\"name\": \"Layer Name\", \"components\": [\"comp1\", \"comp2\", \"comp3\"]}}\n"
+                f"    {{\"name\":\"Layer Name\",\"components\":[\"comp1\",\"comp2\",\"comp3\"]}}\n"
                 f"  ],\n"
                 f"  \"left_panel\": {{\n"
                 f"    \"title\": \"ACCESS FLOW\",\n"
-                f"    \"steps\": [\"Step 1\", \"Step 2\", \"Step 3\", \"Step 4\", \"Step 5\"]\n"
+                f"    \"steps\": [\"Step1\",\"Step2\",\"Step3\",\"Step4\",\"Step5\"]\n"
                 f"  }},\n"
                 f"  \"right_panel\": {{\n"
                 f"    \"title\": \"SECURITY CONTROLS\",\n"
-                f"    \"items\": [\"Control 1\", \"Control 2\", \"Control 3\", \"Control 4\", \"Control 5\"]\n"
+                f"    \"items\": [\"Control1\",\"Control2\",\"Control3\",\"Control4\",\"Control5\"]\n"
                 f"  }},\n"
                 f"  \"security_layer\": {{\n"
                 f"    \"title\": \"AUTONOMOUS PROTECTION LAYER\",\n"
-                f"    \"components\": [\"comp1 max 3 words\", \"comp2\", \"comp3\", \"comp4\", \"comp5\"]\n"
+                f"    \"components\": [\"comp1 max 3 words\",\"comp2\",\"comp3\",\"comp4\",\"comp5\"]\n"
                 f"  }},\n"
-                f"  \"goals\": [\"Goal 1 max 4 words\", \"Goal 2\", \"Goal 3\", \"Goal 4\", \"Goal 5\", \"Goal 6\"],\n"
-                f"  \"stack\": [\"Tech1\", \"Tech2\", \"Tech3\", \"Tech4\", \"Tech5\", \"Tech6\", \"Tech7\", \"Tech8\"],\n"
-                f"  \"why_works\": [\"Reason 1 max 6 words\", \"Reason 2\", \"Reason 3\", \"Reason 4\", \"Reason 5\"],\n"
-                f"  \"principles\": [\"Principle 1\", \"Principle 2\", \"Principle 3\", \"Principle 4\", \"Principle 5\"]\n"
+                f"  \"goals\": [\"Goal1 max 4 words\",\"Goal2\",\"Goal3\",\"Goal4\",\"Goal5\",\"Goal6\"],\n"
+                f"  \"stack\": [\"Tech1\",\"Tech2\",\"Tech3\",\"Tech4\",\"Tech5\",\"Tech6\",\"Tech7\",\"Tech8\"],\n"
+                f"  \"why_works\": [\"Reason1 max 6 words\",\"Reason2\",\"Reason3\",\"Reason4\",\"Reason5\"],\n"
+                f"  \"principles\": [\"Principle1\",\"Principle2\",\"Principle3\",\"Principle4\",\"Principle5\"]\n"
                 f"}}\n\n"
-                f"arch_layers: exactly 5 layers. Each layer has 2-3 components.\n"
+                f"arch_layers: exactly 5 layers. Each has 2-3 components.\n"
                 f"Make everything specific to {subtopic}."}
         ],
         max_tokens=1200,
@@ -177,12 +184,15 @@ def load_fonts():
 
 # ── Drawing Helpers ───────────────────────────────────────────────────────────
 
-def draw_rounded_box(draw, x0, y0, x1, y1, fill, outline=None, radius=8, width=2):
+def draw_rounded_box(draw, x0, y0, x1, y1, fill,
+                     outline=None, radius=8, width=2):
     try:
-        draw.rounded_rectangle([(x0,y0),(x1,y1)], radius=radius,
-                                fill=fill, outline=outline, width=width)
+        draw.rounded_rectangle([(x0,y0),(x1,y1)],
+                                radius=radius, fill=fill,
+                                outline=outline, width=width)
     except:
-        draw.rectangle([(x0,y0),(x1,y1)], fill=fill, outline=outline, width=width)
+        draw.rectangle([(x0,y0),(x1,y1)],
+                       fill=fill, outline=outline, width=width)
 
 def draw_dashed_border(draw, x0, y0, x1, y1, color, dash=8):
     for x in range(x0, x1, dash*2):
@@ -194,7 +204,8 @@ def draw_dashed_border(draw, x0, y0, x1, y1, color, dash=8):
 
 def draw_arrow_down(draw, x, y, color, size=12):
     draw.line([(x,y),(x,y+size)], fill=color, width=2)
-    draw.polygon([(x-5,y+size-4),(x+5,y+size-4),(x,y+size+4)], fill=color)
+    draw.polygon([(x-5,y+size-4),(x+5,y+size-4),(x,y+size+4)],
+                 fill=color)
 
 def centered_text(draw, text, cx, y, font, color):
     bbox = draw.textbbox((0,0), text, font=font)
@@ -206,8 +217,9 @@ def centered_text(draw, text, cx, y, font, color):
 def create_infographic(subtopic, data):
     print(f"[{datetime.now()}] Creating infographic...")
 
-    width = 1080
-    seed = get_seed(subtopic)
+    width  = 1080
+    height = 2400
+    seed   = get_seed(subtopic)
     colors = ACCENT_SETS[seed % len(ACCENT_SETS)]
     P = colors["primary"]
     S = colors["secondary"]
@@ -215,17 +227,15 @@ def create_infographic(subtopic, data):
 
     fonts = load_fonts()
 
-    # ── Calculate total height ─────────────────────────────────────────────
-    height = 2400
-    img = Image.new("RGB", (width, height), BG)
+    img  = Image.new("RGB", (width, height), BG)
     draw = ImageDraw.Draw(img)
 
     # Background gradient
     for y in range(height):
         ratio = y / height
-        r = int(BG[0] + ratio * 5)
-        g = int(BG[1] + ratio * 5)
-        b = int(BG[2] + ratio * 10)
+        r = int(BG[0] + ratio*5)
+        g = int(BG[1] + ratio*5)
+        b = int(BG[2] + ratio*10)
         draw.line([(0,y),(width,y)], fill=(r,g,b))
 
     # Subtle grid
@@ -237,172 +247,164 @@ def create_infographic(subtopic, data):
     current_y = 0
 
     # ── HEADER ────────────────────────────────────────────────────────────
-    # Gradient header bar
-    for y in range(100):
-        ratio = y / 100
+    for y in range(110):
+        ratio = y/110
         r = int(P[0]*0.3 + S[0]*0.7*ratio)
         g = int(P[1]*0.3 + S[1]*0.7*ratio)
         b = int(P[2]*0.3 + S[2]*0.7*ratio)
-        draw.line([(0,y),(width,y)], fill=(max(0,min(255,r)),
-                                          max(0,min(255,g)),
-                                          max(0,min(255,b))))
+        draw.line([(0,y),(width,y)],
+                  fill=(max(0,min(255,r)),
+                        max(0,min(255,g)),
+                        max(0,min(255,b))))
 
-    # Author line
     draw.text((width//2-80, 8), "✦  AUROBINDA OJHA",
               font=fonts["small"], fill=WHITE)
 
-    # Main title
     main_title = data.get("main_title","HOW I SECURE AI SYSTEMS")
-    title_words = main_title.split()
-    # Split into 2 lines
-    mid = len(title_words)//2
-    line1 = " ".join(title_words[:mid])
-    line2 = " ".join(title_words[mid:])
+    words = main_title.split()
+    mid   = len(words)//2
+    line1 = " ".join(words[:mid])
+    line2 = " ".join(words[mid:])
 
-    # First line white
-    bbox = draw.textbbox((0,0), line1, font=fonts["title_lg"])
-    tw = bbox[2]-bbox[0]
-    draw.text(((width-tw)//2, 28), line1, font=fonts["title_lg"], fill=WHITE)
+    bbox1 = draw.textbbox((0,0), line1, font=fonts["title_lg"])
+    tw1   = bbox1[2]-bbox1[0]
+    draw.text(((width-tw1)//2, 28), line1,
+              font=fonts["title_lg"], fill=WHITE)
 
-    # Second line colored
-    bbox2 = draw.textbbox((0,0), line2, font=fonts["title_lg"])
-    tw2 = bbox2[2]-bbox2[0]
-    # Draw with two colors
     words2 = line2.split()
     if len(words2) >= 3:
-        part1 = " ".join(words2[:2])
-        part2 = " ".join(words2[2:])
-        bbox_p1 = draw.textbbox((0,0), part1+" ", font=fonts["title_lg"])
+        p1 = " ".join(words2[:2])
+        p2 = " ".join(words2[2:])
         total_w = draw.textbbox((0,0), line2, font=fonts["title_lg"])[2]
-        x_start = (width-total_w)//2
-        draw.text((x_start, 82), part1, font=fonts["title_lg"], fill=P)
-        draw.text((x_start+bbox_p1[2]-bbox_p1[0], 82), " "+part2,
+        xs = (width-total_w)//2
+        bp1 = draw.textbbox((0,0), p1, font=fonts["title_lg"])
+        draw.text((xs, 82), p1, font=fonts["title_lg"], fill=P)
+        draw.text((xs+bp1[2]-bp1[0]+6, 82), p2,
                   font=fonts["title_lg"], fill=H)
     else:
-        draw.text(((width-tw2)//2, 82), line2, font=fonts["title_lg"], fill=P)
+        bbox2 = draw.textbbox((0,0), line2, font=fonts["title_lg"])
+        tw2   = bbox2[2]-bbox2[0]
+        draw.text(((width-tw2)//2, 82), line2,
+                  font=fonts["title_lg"], fill=P)
 
     current_y = 145
 
     # Subtitle pills
-    pills = data.get("subtitle_pills", [])
+    pills  = data.get("subtitle_pills", [])
     pill_x = 30
     for pill in pills[:5]:
         bbox = draw.textbbox((0,0), pill, font=fonts["tiny"])
-        pw = bbox[2]-bbox[0]+20
-        draw.rounded_rectangle([(pill_x, current_y),
-                                 (pill_x+pw, current_y+22)],
+        pw   = bbox[2]-bbox[0]+20
+        draw.rounded_rectangle([(pill_x,current_y),
+                                 (pill_x+pw,current_y+22)],
                                 radius=11, fill=(30,35,55))
         draw.text((pill_x+10, current_y+4), pill,
                   font=fonts["tiny"], fill=GRAY)
-        pill_x += pw + 8
+        pill_x += pw+8
     current_y += 35
 
     # ── THREATS BAR ───────────────────────────────────────────────────────
-    draw.rectangle([(0,current_y),(width,current_y+30)], fill=(20,25,45))
-    draw.text((width//2-80, current_y+6), "TOP SECURITY THREATS",
-              font=fonts["tiny"], fill=P)
+    draw.rectangle([(0,current_y),(width,current_y+30)],
+                   fill=(20,25,45))
+    centered_text(draw, "TOP SECURITY THREATS",
+                  width//2, current_y+6, fonts["tiny"], P)
     current_y += 30
 
-    threats = data.get("threats", [])
-    threat_w = (width-40) // max(len(threats), 1)
+    threats  = data.get("threats", [])
+    thr_w    = (width-40) // max(len(threats),1)
     for i, threat in enumerate(threats[:6]):
-        tx = 20 + i*threat_w
-        draw_rounded_box(draw, tx, current_y+4, tx+threat_w-8,
-                         current_y+50, fill=(20,25,45),
-                         outline=P, radius=6, width=1)
-        threat_lines = textwrap.fill(ft(threat,12), width=10).split('\n')
-        ty2 = current_y+8
-        for tl in threat_lines:
+        tx = 20 + i*thr_w
+        draw_rounded_box(draw, tx, current_y+4,
+                         tx+thr_w-8, current_y+50,
+                         fill=(20,25,45), outline=P,
+                         radius=6, width=1)
+        tlines = textwrap.fill(ft(threat,12), width=10).split('\n')
+        ty2    = current_y+8
+        for tl in tlines:
             bbox = draw.textbbox((0,0), tl, font=fonts["tiny"])
-            tlw = bbox[2]-bbox[0]
-            draw.text((tx+(threat_w-8-tlw)//2, ty2), tl,
+            tlw  = bbox[2]-bbox[0]
+            draw.text((tx+(thr_w-8-tlw)//2, ty2), tl,
                       font=fonts["tiny"], fill=WHITE)
             ty2 += 14
-    current_y += 60
+    current_y += 62
 
     # ── THREE COLUMN AREA ─────────────────────────────────────────────────
-    LEFT_W = 185
+    LEFT_W  = 185
     RIGHT_W = 185
-    MID_W = width - LEFT_W - RIGHT_W - 20
-    LEFT_X = 10
-    MID_X = LEFT_X + LEFT_W + 5
-    RIGHT_X = MID_X + MID_W + 5
-
+    MID_W   = width - LEFT_W - RIGHT_W - 20
+    LEFT_X  = 10
+    MID_X   = LEFT_X + LEFT_W + 5
+    RIGHT_X = MID_X  + MID_W  + 5
     arch_start_y = current_y
 
-    # LEFT PANEL — Access Flow
+    # LEFT — Access Flow
     left_panel = data.get("left_panel", {})
-    left_title = left_panel.get("title","ACCESS FLOW")
-    left_steps = left_panel.get("steps",[])
-
     draw_rounded_box(draw, LEFT_X, arch_start_y,
                      LEFT_X+LEFT_W, arch_start_y+520,
                      fill=BG2, outline=P, radius=8, width=1)
-    draw.text((LEFT_X+10, arch_start_y+8), left_title,
+    draw.text((LEFT_X+10, arch_start_y+8),
+              left_panel.get("title","ACCESS FLOW"),
               font=fonts["section"], fill=P)
-    draw.line([(LEFT_X+8,arch_start_y+30),(LEFT_X+LEFT_W-8,arch_start_y+30)],
-              fill=DARK_GRAY)
+    draw.line([(LEFT_X+8, arch_start_y+30),
+               (LEFT_X+LEFT_W-8, arch_start_y+30)], fill=DARK_GRAY)
 
     step_y = arch_start_y+38
-    for step in left_steps[:6]:
+    for step in left_panel.get("steps",[])[:6]:
         draw_rounded_box(draw, LEFT_X+8, step_y,
                          LEFT_X+LEFT_W-8, step_y+42,
                          fill=(20,25,45), outline=DARK_GRAY, radius=6)
-        step_wrapped = textwrap.fill(ft(step,18), width=16)
-        draw.text((LEFT_X+14, step_y+6), step_wrapped,
+        draw.text((LEFT_X+12, step_y+6),
+                  textwrap.fill(ft(step,18), width=16),
                   font=fonts["tiny"], fill=WHITE)
         step_y += 50
         if step_y < arch_start_y+510:
             draw_arrow_down(draw, LEFT_X+LEFT_W//2,
                            step_y-8, P, size=8)
 
-    # LEFT PRINCIPLES
-    principles_y = arch_start_y+525
-    draw_rounded_box(draw, LEFT_X, principles_y,
-                     LEFT_X+LEFT_W, principles_y+200,
+    # LEFT — Principles
+    pr_y = arch_start_y+525
+    draw_rounded_box(draw, LEFT_X, pr_y,
+                     LEFT_X+LEFT_W, pr_y+200,
                      fill=BG2, outline=S, radius=8, width=1)
-    draw.text((LEFT_X+10, principles_y+8), "PRINCIPLES",
+    draw.text((LEFT_X+10, pr_y+8), "PRINCIPLES",
               font=fonts["section"], fill=S)
-    draw.line([(LEFT_X+8,principles_y+28),(LEFT_X+LEFT_W-8,principles_y+28)],
+    draw.line([(LEFT_X+8,pr_y+28),(LEFT_X+LEFT_W-8,pr_y+28)],
               fill=DARK_GRAY)
-    py2 = principles_y+35
-    for principle in data.get("principles",[])[:5]:
-        draw.text((LEFT_X+10, py2), f"◆ {ft(principle,20)}",
+    py2 = pr_y+35
+    for p in data.get("principles",[])[:5]:
+        draw.text((LEFT_X+10, py2), f"◆ {ft(p,20)}",
                   font=fonts["tiny"], fill=GRAY)
         py2 += 22
 
-    # RIGHT PANEL — Security Controls
+    # RIGHT — Security Controls
     right_panel = data.get("right_panel", {})
-    right_title = right_panel.get("title","SECURITY CONTROLS")
-    right_items = right_panel.get("items",[])
-
     draw_rounded_box(draw, RIGHT_X, arch_start_y,
                      RIGHT_X+RIGHT_W, arch_start_y+520,
                      fill=BG2, outline=H, radius=8, width=1)
-    draw.text((RIGHT_X+6, arch_start_y+8), right_title,
+    draw.text((RIGHT_X+6, arch_start_y+8),
+              right_panel.get("title","SECURITY CONTROLS"),
               font=fonts["section"], fill=H)
     draw.line([(RIGHT_X+8,arch_start_y+30),
                (RIGHT_X+RIGHT_W-8,arch_start_y+30)], fill=DARK_GRAY)
-
     ri_y = arch_start_y+38
-    for item in right_items[:6]:
+    for item in right_panel.get("items",[])[:6]:
         draw_rounded_box(draw, RIGHT_X+8, ri_y,
                          RIGHT_X+RIGHT_W-8, ri_y+60,
                          fill=(20,25,45), outline=H, radius=6)
-        draw.text((RIGHT_X+14, ri_y+8), ft(item,20),
+        draw.text((RIGHT_X+12, ri_y+8), ft(item,20),
                   font=fonts["tiny"], fill=WHITE)
         ri_y += 68
 
-    # RIGHT GOALS
-    goals_y = arch_start_y+525
-    draw_rounded_box(draw, RIGHT_X, goals_y,
-                     RIGHT_X+RIGHT_W, goals_y+200,
+    # RIGHT — Goals
+    go_y = arch_start_y+525
+    draw_rounded_box(draw, RIGHT_X, go_y,
+                     RIGHT_X+RIGHT_W, go_y+200,
                      fill=BG2, outline=H, radius=8, width=1)
-    draw.text((RIGHT_X+10, goals_y+8), "PRODUCTION GOALS",
+    draw.text((RIGHT_X+10, go_y+8), "PRODUCTION GOALS",
               font=fonts["section"], fill=H)
-    draw.line([(RIGHT_X+8,goals_y+28),(RIGHT_X+RIGHT_W-8,goals_y+28)],
+    draw.line([(RIGHT_X+8,go_y+28),(RIGHT_X+RIGHT_W-8,go_y+28)],
               fill=DARK_GRAY)
-    gy = goals_y+35
+    gy = go_y+35
     for goal in data.get("goals",[])[:6]:
         draw.text((RIGHT_X+8, gy), f"✓ {ft(goal,20)}",
                   font=fonts["tiny"], fill=GRAY)
@@ -420,18 +422,19 @@ def create_infographic(subtopic, data):
 
     arch_layers = data.get("arch_layers",[])
     layer_h = 75
-    lay_y = arch_start_y+38
+    lay_y   = arch_start_y+38
+    layer_colors = [P,S,H,(100,200,255),(180,255,100)]
     for idx, layer in enumerate(arch_layers[:5]):
-        lcolor = [P,S,H,(100,200,255),(180,255,100)][idx%5]
+        lc = layer_colors[idx%5]
         draw_rounded_box(draw, MID_X+8, lay_y,
                          MID_X+MID_W-8, lay_y+layer_h,
-                         fill=(15,20,38), outline=lcolor, radius=6)
-        lname = layer.get("name","Layer")
-        draw.text((MID_X+14, lay_y+5), ft(lname,28),
-                  font=fonts["small"], fill=lcolor)
+                         fill=(15,20,38), outline=lc, radius=6)
+        draw.text((MID_X+14, lay_y+5),
+                  ft(layer.get("name","Layer"),28),
+                  font=fonts["small"], fill=lc)
         comps = layer.get("components",[])
-        comp_str = "  •  ".join([ft(c,15) for c in comps[:3]])
-        draw.text((MID_X+14, lay_y+26), comp_str,
+        draw.text((MID_X+14, lay_y+26),
+                  "  •  ".join([ft(c,15) for c in comps[:3]]),
                   font=fonts["tiny"], fill=GRAY)
         lay_y += layer_h+6
         if idx < len(arch_layers)-1:
@@ -443,104 +446,98 @@ def create_infographic(subtopic, data):
 
     # ── SECURITY LAYER ────────────────────────────────────────────────────
     sec_layer = data.get("security_layer",{})
-    sec_title = sec_layer.get("title","AUTONOMOUS PROTECTION")
-    sec_comps = sec_layer.get("components",[])
-
-    draw_rounded_box(draw, 10, current_y, width-10, current_y+100,
+    draw_rounded_box(draw, 10, current_y,
+                     width-10, current_y+100,
                      fill=(15,20,40), outline=P, radius=8, width=2)
-    draw.text((width//2-120, current_y+8), sec_title,
-              font=fonts["section"], fill=P)
-    draw.line([(20,current_y+28),(width-20,current_y+28)], fill=DARK_GRAY)
+    centered_text(draw, sec_layer.get("title","AUTONOMOUS PROTECTION"),
+                  width//2, current_y+8, fonts["section"], P)
+    draw.line([(20,current_y+28),(width-20,current_y+28)],
+              fill=DARK_GRAY)
 
-    comp_w = (width-40) // max(len(sec_comps),1)
+    sec_comps = sec_layer.get("components",[])
+    comp_w    = (width-40) // max(len(sec_comps),1)
     for i, comp in enumerate(sec_comps[:5]):
         cx2 = 20+i*comp_w+comp_w//2
         draw_rounded_box(draw, 20+i*comp_w+4, current_y+34,
                          20+(i+1)*comp_w-4, current_y+90,
                          fill=(20,28,50), outline=S, radius=6)
-        comp_wrapped = textwrap.fill(ft(comp,12), width=10)
-        clines = comp_wrapped.split('\n')
-        cty = current_y+38+(20-len(clines)*14)//2
+        clines = textwrap.fill(ft(comp,12), width=10).split('\n')
+        cty    = current_y+38+(20-len(clines)*14)//2
         for cl in clines:
             bbox = draw.textbbox((0,0), cl, font=fonts["tiny"])
-            clw = bbox[2]-bbox[0]
-            draw.text((cx2-clw//2, cty), cl, font=fonts["tiny"], fill=WHITE)
+            clw  = bbox[2]-bbox[0]
+            draw.text((cx2-clw//2, cty), cl,
+                      font=fonts["tiny"], fill=WHITE)
             cty += 14
     current_y += 110
 
     # ── STACK + WHY WORKS + ABOUT ─────────────────────────────────────────
-    section_y = current_y
-    SEC_W = (width-30) // 3
+    SEC_W  = (width-30)//3
     SEC1_X = 10
     SEC2_X = SEC1_X+SEC_W+5
     SEC3_X = SEC2_X+SEC_W+5
+    sec_y  = current_y
 
     # Stack
-    draw_rounded_box(draw, SEC1_X, section_y,
-                     SEC1_X+SEC_W, section_y+220,
+    draw_rounded_box(draw, SEC1_X, sec_y,
+                     SEC1_X+SEC_W, sec_y+220,
                      fill=BG2, outline=DARK_GRAY, radius=8)
-    draw.text((SEC1_X+10, section_y+8), "🔥 PREFERRED STACK",
+    draw.text((SEC1_X+10, sec_y+8), "🔥 PREFERRED STACK",
               font=fonts["section"], fill=H)
-    draw.line([(SEC1_X+8,section_y+28),(SEC1_X+SEC_W-8,section_y+28)],
+    draw.line([(SEC1_X+8,sec_y+28),(SEC1_X+SEC_W-8,sec_y+28)],
               fill=DARK_GRAY)
-    stack = data.get("stack",[])
     sx = SEC1_X+10
-    sy2 = section_y+36
-    for tech in stack[:12]:
+    sy2 = sec_y+36
+    for tech in data.get("stack",[])[:12]:
         bbox = draw.textbbox((0,0), tech, font=fonts["tiny"])
-        tw2 = bbox[2]-bbox[0]+12
+        tw2  = bbox[2]-bbox[0]+12
         if sx+tw2 > SEC1_X+SEC_W-8:
             sx = SEC1_X+10
             sy2 += 28
         draw_rounded_box(draw, sx, sy2, sx+tw2, sy2+20,
                          fill=(25,30,55), outline=P, radius=4)
-        draw.text((sx+6, sy2+3), tech, font=fonts["tiny"], fill=P)
+        draw.text((sx+6, sy2+3), tech,
+                  font=fonts["tiny"], fill=P)
         sx += tw2+6
 
     # Why Works
-    draw_rounded_box(draw, SEC2_X, section_y,
-                     SEC2_X+SEC_W, section_y+220,
+    draw_rounded_box(draw, SEC2_X, sec_y,
+                     SEC2_X+SEC_W, sec_y+220,
                      fill=BG2, outline=DARK_GRAY, radius=8)
-    draw.text((SEC2_X+10, section_y+8), "✅ WHY THIS WORKS",
+    draw.text((SEC2_X+10, sec_y+8), "✅ WHY THIS WORKS",
               font=fonts["section"], fill=P)
-    draw.line([(SEC2_X+8,section_y+28),(SEC2_X+SEC_W-8,section_y+28)],
+    draw.line([(SEC2_X+8,sec_y+28),(SEC2_X+SEC_W-8,sec_y+28)],
               fill=DARK_GRAY)
-    wy = section_y+36
+    wy = sec_y+36
     for reason in data.get("why_works",[])[:5]:
         draw.text((SEC2_X+10, wy), f"✓  {ft(reason,28)}",
                   font=fonts["tiny"], fill=GRAY)
         wy += 26
 
     # About Me
-    draw_rounded_box(draw, SEC3_X, section_y,
-                     SEC3_X+SEC_W, section_y+220,
+    draw_rounded_box(draw, SEC3_X, sec_y,
+                     SEC3_X+SEC_W, sec_y+220,
                      fill=BG2, outline=DARK_GRAY, radius=8)
-    draw.text((SEC3_X+10, section_y+8), "👤 ABOUT ME",
+    draw.text((SEC3_X+10, sec_y+8), "👤 ABOUT ME",
               font=fonts["section"], fill=S)
-    draw.line([(SEC3_X+8,section_y+28),(SEC3_X+SEC_W-8,section_y+28)],
+    draw.line([(SEC3_X+8,sec_y+28),(SEC3_X+SEC_W-8,sec_y+28)],
               fill=DARK_GRAY)
-
-    draw.ellipse([(SEC3_X+SEC_W//2-30, section_y+35),
-                  (SEC3_X+SEC_W//2+30, section_y+95)],
+    draw.ellipse([(SEC3_X+SEC_W//2-30, sec_y+35),
+                  (SEC3_X+SEC_W//2+30, sec_y+95)],
                  outline=S, width=2)
-    draw.text((SEC3_X+SEC_W//2-12, section_y+55), "AO",
+    draw.text((SEC3_X+SEC_W//2-12, sec_y+55), "AO",
               font=fonts["title_sm"], fill=S)
-
-    draw.text((SEC3_X+10, section_y+105), "Aurobinda Ojha",
+    draw.text((SEC3_X+10, sec_y+105), "Aurobinda Ojha",
               font=fonts["small"], fill=WHITE)
-    draw.text((SEC3_X+10, section_y+124),
-              "Independent Researcher",
+    draw.text((SEC3_X+10, sec_y+124), "Independent Researcher",
               font=fonts["tiny"], fill=GRAY)
-    draw.text((SEC3_X+10, section_y+140),
-              "Cybersecurity & Agentic AI",
+    draw.text((SEC3_X+10, sec_y+140), "Cybersecurity & Agentic AI",
               font=fonts["tiny"], fill=GRAY)
-
-    roles = ["Cybersecurity Research", "Agentic AI", "LLMOps"]
-    ry = section_y+160
+    ry = sec_y+162
     rx = SEC3_X+10
-    for role in roles:
+    for role in ["Cybersecurity","Agentic AI","LLMOps"]:
         bbox = draw.textbbox((0,0), role, font=fonts["tiny"])
-        rw = bbox[2]-bbox[0]+10
+        rw   = bbox[2]-bbox[0]+10
         draw_rounded_box(draw, rx, ry, rx+rw, ry+18,
                          fill=(20,25,50), outline=S, radius=4)
         draw.text((rx+5, ry+2), role, font=fonts["tiny"], fill=S)
@@ -549,42 +546,41 @@ def create_infographic(subtopic, data):
             rx = SEC3_X+10
             ry += 22
 
-    current_y = section_y + 230
+    current_y = sec_y+230
 
     # ── FOOTER ────────────────────────────────────────────────────────────
     draw.rectangle([(0,current_y),(width,current_y+4)], fill=P)
     current_y += 8
 
-    draw_rounded_box(draw, 10, current_y, width-10, current_y+60,
+    draw_rounded_box(draw, 10, current_y,
+                     width-10, current_y+65,
                      fill=(12,15,30), outline=DARK_GRAY, radius=8)
-
-    shield = "🛡️"
-    draw.text((25, current_y+12), shield, font=fonts["title_sm"], fill=P)
-    draw.text((75, current_y+10),
-              "LET'S BUILD SECURE AI INFRASTRUCTURE TOGETHER!",
+    draw.text((25, current_y+10),
+              "🛡️  LET'S BUILD SECURE AI INFRASTRUCTURE TOGETHER!",
               font=fonts["small"], fill=WHITE)
-    draw.text((75, current_y+32), "📩 aurobindaojha@gmail.com",
+    draw.text((25, current_y+34),
+              "📩 aurobindaojha@gmail.com",
               font=fonts["small"], fill=P)
-
     date_str = datetime.now().strftime("%B %d, %Y")
-    draw.text((width-200, current_y+35), date_str,
+    draw.text((width-200, current_y+38), date_str,
               font=fonts["tiny"], fill=GRAY)
-    current_y += 70
+    current_y += 75
 
     # Hashtags
     draw.rectangle([(0,current_y),(width,current_y+40)], fill=(8,10,20))
-    hashtags = "#AgenticAI #Cybersecurity #ZeroTrust #AISecuurity #LLMOps #AIOps #MLOps"
-    draw.text((20, current_y+10), hashtags, font=fonts["tiny"], fill=(80,90,120))
+    draw.text((20, current_y+10),
+              "#AgenticAI #Cybersecurity #ZeroTrust #AISecurity "
+              "#LLMOps #AIOps #MLOps #AIAgents",
+              font=fonts["tiny"], fill=(80,90,120))
     current_y += 45
 
-    # Crop to content
+    # Crop
     img = img.crop((0, 0, width, current_y))
-
-    img_bytes = io.BytesIO()
-    img.save(img_bytes, format="JPEG", quality=95)
-    img_bytes.seek(0)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=95)
+    buf.seek(0)
     print(f"Infographic created!")
-    return img_bytes.read()
+    return buf.read()
 
 # ── LinkedIn Upload ───────────────────────────────────────────────────────────
 
@@ -605,10 +601,11 @@ def upload_image_to_linkedin(image_data):
         headers=LINKEDIN_HEADERS, json=register_payload
     )
     r.raise_for_status()
-    response_json = r.json()
-    upload_url = response_json["value"]["uploadMechanism"][
-        "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]["uploadUrl"]
-    asset = response_json["value"]["asset"]
+    rj = r.json()
+    upload_url = rj["value"]["uploadMechanism"][
+        "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"][
+        "uploadUrl"]
+    asset = rj["value"]["asset"]
     requests.put(
         upload_url,
         headers={"Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
@@ -638,17 +635,20 @@ def job_post():
         "lifecycleState": "PUBLISHED",
         "specificContent": {
             "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": {"text": content},
+                "shareCommentary": {"text": content[:3000]},
                 "shareMediaCategory": "IMAGE",
                 "media": [{
                     "status": "READY",
-                    "description": {"text": data.get("main_title", subtopic)},
+                    "description": {
+                        "text": data.get("main_title", subtopic)},
                     "media": asset,
-                    "title": {"text": data.get("main_title", subtopic)[:100]}
+                    "title": {
+                        "text": data.get("main_title", subtopic)[:100]}
                 }]
             }
         },
-        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
+        "visibility": {
+            "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
     }
 
     r = requests.post(
