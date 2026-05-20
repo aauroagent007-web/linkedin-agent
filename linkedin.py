@@ -23,6 +23,13 @@ LINKEDIN_HEADERS = {
     "X-Restli-Protocol-Version": "2.0.0"
 }
 
+PROFILE_IMAGE_URL = (
+    "https://media.licdn.com/dms/image/v2/C4D03AQHnswiAnQJbMg/"
+    "profile-displayphoto-shrink_800_800/"
+    "profile-displayphoto-shrink_800_800/0/1516492188066"
+    "?e=1781136000&v=beta&t=fSaDr16J6btRG0W3a32V__c-slLPrTscWAGJGI6vxEE"
+)
+
 DAILY_TOPICS = [
     "Prompt Injection Attacks on AI Agents",
     "Zero Trust Architecture for AI Systems",
@@ -79,6 +86,29 @@ def text_in_box(draw, text, x, y, max_w, max_h, font, color,
         draw.text((x+padding, cy), line, font=font, fill=color)
         cy += line_h
 
+def load_profile_image(size=80):
+    """Load and crop profile image into a circle"""
+    try:
+        resp = requests.get(PROFILE_IMAGE_URL, timeout=15)
+        resp.raise_for_status()
+        profile = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        profile = profile.resize((size, size), Image.LANCZOS)
+
+        # Create circular mask
+        mask = Image.new("L", (size, size), 0)
+        md = ImageDraw.Draw(mask)
+        md.ellipse([(0,0),(size,size)], fill=255)
+
+        # Apply mask
+        result = Image.new("RGBA", (size, size), (0,0,0,0))
+        result.paste(profile, (0,0))
+        result.putalpha(mask)
+        print("Profile image loaded!")
+        return result
+    except Exception as e:
+        print(f"Profile image failed: {e}")
+        return None
+
 # ── Colors ────────────────────────────────────────────────────────────────────
 BG        = (8, 10, 20)
 BG2       = (14, 18, 35)
@@ -132,22 +162,15 @@ def ai_generate_post(subtopic):
         max_tokens=1500,
     )
     content = response.choices[0].message.content.strip()
-    # Clean any markdown that slips through
-    for ch in ["##", "**", "__", "# ", "* "]:
+    for ch in ["##","**","__","# ","* "]:
         content = content.replace(ch, "")
-    # Remove any about me / reach out lines
     lines = content.split('\n')
-    clean_lines = []
-    skip_keywords = [
-        "reach out", "contact me", "about me", "i am aurobinda",
-        "aurobindaojha@", "gmail.com", "collaborat", "inquir",
-        "freelance", "remote", "contract", "opportunity"
-    ]
-    for line in lines:
-        if any(kw in line.lower() for kw in skip_keywords):
-            continue
-        clean_lines.append(line)
-    return '\n'.join(clean_lines).strip()
+    skip_kw = ["reach out","contact me","about me","i am aurobinda",
+                "aurobindaojha@","gmail.com","collaborat","inquir",
+                "freelance","remote","contract","opportunity"]
+    clean = [l for l in lines
+             if not any(k in l.lower() for k in skip_kw)]
+    return '\n'.join(clean).strip()
 
 def ai_generate_infographic_data(subtopic):
     response = openai_client.chat.completions.create(
@@ -224,8 +247,7 @@ def cx_text(draw, text, cx, y, font, color):
 
 def arrow_down(draw, x, y, color, size=10):
     draw.line([(x,y),(x,y+size)], fill=color, width=2)
-    draw.polygon([(x-5,y+size),(x+5,y+size),(x,y+size+8)],
-                 fill=color)
+    draw.polygon([(x-5,y+size),(x+5,y+size),(x,y+size+8)], fill=color)
 
 # ── Infographic ───────────────────────────────────────────────────────────────
 
@@ -237,6 +259,9 @@ def create_infographic(subtopic, data):
     C       = ACCENT_SETS[seed % len(ACCENT_SETS)]
     P, S, H = C["P"], C["S"], C["H"]
     fonts   = load_fonts()
+
+    # Load profile image once
+    profile_img = load_profile_image(size=90)
 
     H_HDR    = 155
     H_PILLS  = 35
@@ -251,11 +276,13 @@ def create_infographic(subtopic, data):
     img  = Image.new("RGB", (W, TOTAL_H), BG)
     draw = ImageDraw.Draw(img)
 
+    # Gradient BG
     for y in range(TOTAL_H):
         t = y/TOTAL_H
         draw.line([(0,y),(W,y)], fill=(
             int(BG[0]+t*8), int(BG[1]+t*8), int(BG[2]+t*15)))
 
+    # Grid
     for x in range(0, W, 55):
         draw.line([(x,0),(x,TOTAL_H)], fill=(14,17,32), width=1)
     for y in range(0, TOTAL_H, 55):
@@ -343,8 +370,7 @@ def create_infographic(subtopic, data):
     draw.text((LX+8, arch_y+7),
               data.get("left_panel",{}).get("title","ACCESS FLOW"),
               font=fonts["h4"], fill=P)
-    draw.line([(LX+6,arch_y+26),(LX+LW-6,arch_y+26)],
-              fill=DARK_GRAY)
+    draw.line([(LX+6,arch_y+26),(LX+LW-6,arch_y+26)], fill=DARK_GRAY)
     sy = arch_y+32
     for step in data.get("left_panel",{}).get("steps",[])[:6]:
         rbox(draw, LX+6, sy, LX+LW-6, sy+38,
@@ -490,22 +516,46 @@ def create_infographic(subtopic, data):
                     line_h=15, padding=10)
         wy2 += 28
 
-    # About Me
+    # ── ABOUT ME with real profile photo ──────────────────────────────────
     rbox(draw, BX3, Y, BX3+BW, Y+BH,
          fill=BG2, outline=DARK_GRAY, r=8)
     draw.text((BX3+10, Y+8), "👤 ABOUT ME",
               font=fonts["h4"], fill=S)
     draw.line([(BX3+8,Y+27),(BX3+BW-8,Y+27)], fill=DARK_GRAY)
-    draw.ellipse([(BX3+BW//2-28,Y+34),(BX3+BW//2+28,Y+90)],
-                 outline=S, width=2, fill=BG3)
-    cx_text(draw, "AO", BX3+BW//2, Y+50, fonts["h3"], S)
-    draw.text((BX3+10, Y+98), "Aurobinda Ojha",
-              font=fonts["h4"], fill=WHITE)
-    draw.text((BX3+10, Y+118), "Independent Researcher",
-              font=fonts["sm"], fill=GRAY)
-    draw.text((BX3+10, Y+135), "Cybersecurity & Agentic AI",
-              font=fonts["sm"], fill=GRAY)
-    rl_y = Y+158
+
+    prof_size = 90
+    px_pos    = BX3 + (BW - prof_size) // 2
+    py_pos    = Y + 34
+
+    if profile_img is not None:
+        # Paste circular profile photo
+        img_rgba = img.convert("RGBA")
+        img_rgba.paste(profile_img, (px_pos, py_pos), profile_img)
+        img = img_rgba.convert("RGB")
+        draw = ImageDraw.Draw(img)
+    else:
+        # Fallback circle
+        draw.ellipse([(px_pos, py_pos),
+                      (px_pos+prof_size, py_pos+prof_size)],
+                     fill=BG3, outline=S, width=2)
+        cx_text(draw, "AO", px_pos+prof_size//2,
+                py_pos+prof_size//3, fonts["h3"], S)
+
+    # Accent ring around photo
+    draw.ellipse([
+        (px_pos-3, py_pos-3),
+        (px_pos+prof_size+3, py_pos+prof_size+3)
+    ], outline=S, width=2)
+
+    name_y = py_pos + prof_size + 10
+    cx_text(draw, "Aurobinda Ojha",
+            BX3+BW//2, name_y, fonts["h4"], WHITE)
+    cx_text(draw, "Independent Researcher",
+            BX3+BW//2, name_y+22, fonts["sm"], GRAY)
+    cx_text(draw, "Cybersecurity & Agentic AI",
+            BX3+BW//2, name_y+40, fonts["sm"], GRAY)
+
+    rl_y = name_y+62
     rl_x = BX3+10
     for role in ["Cybersecurity","Agentic AI","LLMOps"]:
         bb  = draw.textbbox((0,0), role, font=fonts["sm"])
