@@ -105,31 +105,49 @@ def ai_generate_post(subtopic):
             {"role": "system", "content":
                 "You are Aurobinda Ojha, Independent Researcher on Cybersecurity "
                 "and Agentic AI. Write deep technical LinkedIn posts. "
+                "NEVER write any about me, reach out, or contact section. "
                 "NEVER use ##, **, __, or any markdown. Plain text + emojis only."},
             {"role": "user", "content":
                 f"Write a detailed LinkedIn post about: {subtopic}\n\n"
                 f"STRUCTURE:\n"
-                f"1. Hook: start with emoji + title\n"
-                f"2. 2-3 context lines\n"
+                f"1. Hook: start with emoji + powerful title\n"
+                f"2. 2-3 context lines explaining why this matters\n"
                 f"3. Problem list (5-6 emoji bullets)\n"
-                f"4. Powerful insight line\n"
+                f"4. One powerful insight line\n"
                 f"5. Solution list (5 lightning emoji bullets)\n"
                 f"6. Simple ASCII architecture with | arrows\n"
-                f"7. Four sections with emoji header + bullet points\n"
+                f"7. Four technical sections with emoji header + bullet points\n"
                 f"8. Goals (5-6 checkmark lines)\n"
                 f"9. Preferred Stack line\n"
-                f"10. Future vision\n"
-                f"11. About me as Aurobinda Ojha + aurobindaojha@gmail.com\n"
-                f"12. End with 12-15 relevant hashtags on the last line\n\n"
-                f"NO markdown at all. Plain text + emojis only. 400-600 words.\n"
-                f"Hashtags MUST be at the very end of the post text."}
+                f"10. Future vision line\n"
+                f"11. End with 12-15 relevant hashtags on the very last line\n\n"
+                f"STRICT RULES:\n"
+                f"- NO about me section\n"
+                f"- NO reach out or contact info\n"
+                f"- NO markdown (##, **, __, *)\n"
+                f"- Plain text + emojis only\n"
+                f"- Hashtags ONLY at the very end\n"
+                f"- 400-600 words total"}
         ],
         max_tokens=1500,
     )
     content = response.choices[0].message.content.strip()
-    for ch in ["##","**","__","# ","* "]:
+    # Clean any markdown that slips through
+    for ch in ["##", "**", "__", "# ", "* "]:
         content = content.replace(ch, "")
-    return content
+    # Remove any about me / reach out lines
+    lines = content.split('\n')
+    clean_lines = []
+    skip_keywords = [
+        "reach out", "contact me", "about me", "i am aurobinda",
+        "aurobindaojha@", "gmail.com", "collaborat", "inquir",
+        "freelance", "remote", "contract", "opportunity"
+    ]
+    for line in lines:
+        if any(kw in line.lower() for kw in skip_keywords):
+            continue
+        clean_lines.append(line)
+    return '\n'.join(clean_lines).strip()
 
 def ai_generate_infographic_data(subtopic):
     response = openai_client.chat.completions.create(
@@ -206,18 +224,19 @@ def cx_text(draw, text, cx, y, font, color):
 
 def arrow_down(draw, x, y, color, size=10):
     draw.line([(x,y),(x,y+size)], fill=color, width=2)
-    draw.polygon([(x-5,y+size),(x+5,y+size),(x,y+size+8)], fill=color)
+    draw.polygon([(x-5,y+size),(x+5,y+size),(x,y+size+8)],
+                 fill=color)
 
 # ── Infographic ───────────────────────────────────────────────────────────────
 
 def create_infographic(subtopic, data):
     print(f"[{datetime.now()}] Creating infographic...")
 
-    W     = 1080
-    seed  = get_seed(subtopic)
-    C     = ACCENT_SETS[seed % len(ACCENT_SETS)]
+    W       = 1080
+    seed    = get_seed(subtopic)
+    C       = ACCENT_SETS[seed % len(ACCENT_SETS)]
     P, S, H = C["P"], C["S"], C["H"]
-    fonts = load_fonts()
+    fonts   = load_fonts()
 
     H_HDR    = 155
     H_PILLS  = 35
@@ -232,13 +251,11 @@ def create_infographic(subtopic, data):
     img  = Image.new("RGB", (W, TOTAL_H), BG)
     draw = ImageDraw.Draw(img)
 
-    # Gradient BG
     for y in range(TOTAL_H):
         t = y/TOTAL_H
         draw.line([(0,y),(W,y)], fill=(
             int(BG[0]+t*8), int(BG[1]+t*8), int(BG[2]+t*15)))
 
-    # Grid
     for x in range(0, W, 55):
         draw.line([(x,0),(x,TOTAL_H)], fill=(14,17,32), width=1)
     for y in range(0, TOTAL_H, 55):
@@ -255,7 +272,8 @@ def create_infographic(subtopic, data):
         draw.line([(0,y),(W,y)], fill=(
             max(0,min(255,r)),max(0,min(255,g)),max(0,min(255,b))))
 
-    cx_text(draw, "✦  AUROBINDA OJHA  ✦", W//2, Y+6, fonts["body"], WHITE)
+    cx_text(draw, "✦  AUROBINDA OJHA  ✦",
+            W//2, Y+6, fonts["body"], WHITE)
 
     title = data.get("main_title","HOW I SECURE AI SYSTEMS")
     words = title.split()
@@ -265,12 +283,12 @@ def create_infographic(subtopic, data):
 
     cx_text(draw, l1, W//2, Y+28, fonts["h1"], WHITE)
 
-    ws = l2.split()
+    ws  = l2.split()
     bb2 = draw.textbbox((0,0), l2, font=fonts["h1"])
     tw2 = bb2[2]-bb2[0]
     if len(ws) >= 2:
-        a  = " ".join(ws[:len(ws)//2])
-        b_ = " ".join(ws[len(ws)//2:])
+        a   = " ".join(ws[:len(ws)//2])
+        b_  = " ".join(ws[len(ws)//2:])
         bba = draw.textbbox((0,0), a+" ", font=fonts["h1"])
         xa  = (W-tw2)//2
         draw.text((xa, Y+82), a, font=fonts["h1"], fill=P)
@@ -298,7 +316,6 @@ def create_infographic(subtopic, data):
     rbox(draw, 0, Y, W, Y+H_THREAT, fill=(16,20,40))
     cx_text(draw, "▸  TOP SECURITY THREATS  ◂",
             W//2, Y+5, fonts["sm"], P)
-
     threats = data.get("threats",[])[:6]
     tw3 = (W-40) // max(len(threats),1)
     for i, t in enumerate(threats):
@@ -313,7 +330,7 @@ def create_infographic(subtopic, data):
     # ── 3-COLUMN ──────────────────────────────────────────────────────────
     LW     = 178
     RW     = 178
-    MW     = W - LW - RW - 18
+    MW     = W-LW-RW-18
     LX     = 8
     MX     = LX+LW+5
     RX     = MX+MW+5
@@ -328,7 +345,6 @@ def create_infographic(subtopic, data):
               font=fonts["h4"], fill=P)
     draw.line([(LX+6,arch_y+26),(LX+LW-6,arch_y+26)],
               fill=DARK_GRAY)
-
     sy = arch_y+32
     for step in data.get("left_panel",{}).get("steps",[])[:6]:
         rbox(draw, LX+6, sy, LX+LW-6, sy+38,
@@ -389,10 +405,10 @@ def create_infographic(subtopic, data):
             MX+MW//2, arch_y+7, fonts["h4"], S)
     draw.line([(MX+6,arch_y+26),(MX+MW-6,arch_y+26)], fill=DARK_GRAY)
 
-    layers    = data.get("arch_layers",[])
-    lyr_h     = (COL_H-36) // max(len(layers),1) - 6
-    lyr_y     = arch_y+32
-    lyr_cols  = [P,S,H,(100,210,255),(180,255,120)]
+    layers   = data.get("arch_layers",[])
+    lyr_h    = (COL_H-36) // max(len(layers),1) - 6
+    lyr_y    = arch_y+32
+    lyr_cols = [P,S,H,(100,210,255),(180,255,120)]
     for idx, layer in enumerate(layers[:5]):
         lc = lyr_cols[idx%5]
         rbox(draw, MX+6, lyr_y, MX+MW-6, lyr_y+lyr_h,
@@ -418,7 +434,6 @@ def create_infographic(subtopic, data):
     cx_text(draw, sl.get("title","AUTONOMOUS PROTECTION"),
             W//2, Y+7, fonts["h4"], P)
     draw.line([(16,Y+26),(W-16,Y+26)], fill=DARK_GRAY)
-
     sc  = sl.get("components",[])[:5]
     scw = (W-30) // max(len(sc),1)
     for i, comp in enumerate(sc):
