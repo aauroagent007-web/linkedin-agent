@@ -25,10 +25,9 @@ LINKEDIN_HEADERS = {
 }
 
 PROFILE_IMAGE_URL = (
-    "https://media.licdn.com/dms/image/v2/C4D03AQHnswiAnQJbMg/"
-    "profile-displayphoto-shrink_800_800/"
-    "profile-displayphoto-shrink_800_800/0/1516492188066"
-    "?e=1781136000&v=beta&t=fSaDr16J6btRG0W3a32V__c-slLPrTscWAGJGI6vxEE"
+    "https://media.licdn.com/dms/image/v2/D5603AQHeZYPrmMcLGQ/"
+    "profile-displayphoto-crop_800_800/B56Z5UeqHWJIAI-/0/1779533785179"
+    "?e=1781136000&v=beta&t=PC4Iz_0gJfRN1A3MfE_WQLMabqdc6enCTApyw-LBbSg"
 )
 
 DAILY_TOPICS = [
