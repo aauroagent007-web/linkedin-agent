@@ -27,9 +27,18 @@ jobs:
 
       - name: Run LinkedIn Agent
         run: python linkedin.py
+        timeout-minutes: 20
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
           LINKEDIN_PERSON_ID: ${{ secrets.LINKEDIN_PERSON_ID }}
           TOPIC: "Agentic AI cybersecurity and autonomous threat detection"
           RUN_MODE: ${{ github.event.inputs.mode || 'post' }}
+
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: daily-pdf-book
+          path: /tmp/*.pdf
+          retention-days: 7
+        continue-on-error: true
