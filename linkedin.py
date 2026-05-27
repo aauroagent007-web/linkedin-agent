@@ -258,6 +258,36 @@ def ai_generate_post(subtopic):
         content = content + "\n\n" + hashtags
     return content
 
+def ai_generate_pdf_post(subtopic, book_title):
+    """Shorter post specifically for the PDF document post"""
+    hashtags = get_hashtags(subtopic)
+    response = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content":
+                "You are Aurobinda Ojha, Independent Researcher on Cybersecurity "
+                "and Agentic AI. Write short engaging LinkedIn posts. "
+                "NEVER use ##, **, __, or markdown. Plain text + emojis only."},
+            {"role": "user", "content":
+                f"Write a SHORT LinkedIn post (150-200 words) to share a PDF guide about: {subtopic}\n\n"
+                f"Book title: {book_title}\n\n"
+                f"STRUCTURE:\n"
+                f"1. Hook line with emoji\n"
+                f"2. 2-3 lines why this PDF matters\n"
+                f"3. 4-5 bullet points of what's inside\n"
+                f"4. Call to action to read/save\n\n"
+                f"End with:\n{hashtags}\n\n"
+                f"NO markdown. Plain text + emojis only."}
+        ],
+        max_tokens=500,
+    )
+    content = response.choices[0].message.content.strip()
+    for ch in ["##","**","__","# ","* "]:
+        content = content.replace(ch, "")
+    if hashtags.split()[0] not in content:
+        content = content + "\n\n" + hashtags
+    return content
+
 # ── AI: Infographic Data ──────────────────────────────────────────────────────
 
 def ai_generate_infographic_data(subtopic):
@@ -432,30 +462,24 @@ def build_pdf(subtopic, book_data, output_path):
 
     def page_bg(canvas_obj, doc):
         canvas_obj.saveState()
-        # Dark background
         canvas_obj.setFillColor(DARK_NAVY)
         canvas_obj.rect(0, 0, W, H, fill=1, stroke=0)
-        # Subtle grid
         canvas_obj.setStrokeColor(HexColor("#0F1825"))
         canvas_obj.setLineWidth(0.3)
         for x in range(0, int(W), 20):
             canvas_obj.line(x, 0, x, H)
         for y in range(0, int(H), 20):
             canvas_obj.line(0, y, W, y)
-        # Top accent bar
         canvas_obj.setFillColor(CYAN_PDF)
         canvas_obj.rect(0, H-8, W, 8, fill=1, stroke=0)
-        # Header strip
         canvas_obj.setFillColor(NAVY_PDF)
         canvas_obj.rect(0, H-35, W, 27, fill=1, stroke=0)
         canvas_obj.setFillColor(CYAN_PDF)
         canvas_obj.setFont("Helvetica-Bold", 9)
-        canvas_obj.drawString(15, H-26,
-            book_data.get("title","")[:50])
+        canvas_obj.drawString(15, H-26, book_data.get("title","")[:50])
         canvas_obj.setFillColor(GRAY_PDF)
         canvas_obj.setFont("Helvetica", 8)
         canvas_obj.drawRightString(W-15, H-26, "aurobindaojha.com")
-        # Footer strip
         canvas_obj.setFillColor(NAVY_PDF)
         canvas_obj.rect(0, 0, W, 22, fill=1, stroke=0)
         canvas_obj.setFillColor(CYAN_PDF)
@@ -475,10 +499,9 @@ def build_pdf(subtopic, book_data, output_path):
         title=book_data.get("title",""),
         author="Aurobinda Ojha",
     )
-
     story = []
 
-    # ── COVER PAGE ────────────────────────────────────────────────────────
+    # Cover
     story.append(Spacer(1, 20*mm))
     if profile_rl:
         t = Table([[profile_rl]], colWidths=[W-30*mm])
@@ -488,19 +511,14 @@ def build_pdf(subtopic, book_data, output_path):
         ]))
         story.append(t)
         story.append(Spacer(1, 5*mm))
-
     story.append(Paragraph("AUROBINDA OJHA",
         ParagraphStyle("ca", fontSize=13, textColor=CYAN_PDF,
-                       alignment=TA_CENTER, fontName="Helvetica-Bold",
-                       spaceAfter=2)))
+                       alignment=TA_CENTER, fontName="Helvetica-Bold", spaceAfter=2)))
     story.append(Paragraph(
         "Independent Researcher | Cybersecurity &amp; Agentic AI",
         ParagraphStyle("cr", fontSize=9, textColor=GRAY_PDF,
-                       alignment=TA_CENTER, fontName="Helvetica",
-                       spaceAfter=8)))
-    story.append(HRFlowable(width="60%", thickness=1,
-                             color=CYAN_PDF, spaceAfter=8))
-
+                       alignment=TA_CENTER, fontName="Helvetica", spaceAfter=8)))
+    story.append(HRFlowable(width="60%", thickness=1, color=CYAN_PDF, spaceAfter=8))
     title = book_data.get("title","AI SECURITY DEEP DIVE")
     words = title.split()
     mid   = max(1, len(words)//2)
@@ -514,31 +532,26 @@ def build_pdf(subtopic, book_data, output_path):
                        spaceAfter=6, leading=40)))
     story.append(Paragraph(book_data.get("subtitle",""),
         ParagraphStyle("cs", fontSize=13, textColor=YELLOW_PDF,
-                       alignment=TA_CENTER, fontName="Helvetica-Bold",
-                       spaceAfter=4)))
+                       alignment=TA_CENTER, fontName="Helvetica-Bold", spaceAfter=4)))
     story.append(Paragraph(book_data.get("tagline","").upper(),
         ParagraphStyle("ct", fontSize=9, textColor=GRAY_PDF,
-                       alignment=TA_CENTER, fontName="Helvetica",
-                       spaceAfter=10)))
-    story.append(HRFlowable(width="80%", thickness=1,
-                             color=MID_BLUE, spaceAfter=6))
+                       alignment=TA_CENTER, fontName="Helvetica", spaceAfter=10)))
+    story.append(HRFlowable(width="80%", thickness=1, color=MID_BLUE, spaceAfter=6))
     story.append(Paragraph(datetime.now().strftime("%B %Y"),
         ParagraphStyle("cd", fontSize=9, textColor=GRAY_PDF,
                        alignment=TA_CENTER, fontName="Helvetica")))
     story.append(PageBreak())
 
-    # ── ABOUT PAGE ────────────────────────────────────────────────────────
+    # About
     story.append(Spacer(1, 8*mm))
     story.append(Paragraph("ABOUT",
         ParagraphStyle("ah", fontSize=32, textColor=WHITE_PDF,
                        fontName="Helvetica-Bold", spaceAfter=3)))
-    story.append(HRFlowable(width="100%", thickness=1,
-                             color=MID_BLUE, spaceAfter=6))
+    story.append(HRFlowable(width="100%", thickness=1, color=MID_BLUE, spaceAfter=6))
     story.append(Paragraph(book_data.get("about",""),
         ParagraphStyle("ab", fontSize=11, textColor=LIGHT_GRAY,
                        fontName="Helvetica", leading=16,
                        alignment=TA_JUSTIFY, spaceAfter=8)))
-
     who_items = "".join(f"&bull; {w}<br/>" for w in book_data.get("who_can",[]))
     why_items = "".join(f"&bull; {w}<br/>" for w in book_data.get("why_us",[]))
     PW = A4[0] - 30*mm
@@ -569,7 +582,7 @@ def build_pdf(subtopic, book_data, output_path):
     story.append(t2)
     story.append(PageBreak())
 
-    # ── CHAPTERS ──────────────────────────────────────────────────────────
+    # Chapters
     for chapter in book_data.get("chapters",[]):
         story.append(Spacer(1, 8*mm))
         story.append(Paragraph(
@@ -591,13 +604,12 @@ def build_pdf(subtopic, book_data, output_path):
             story.append(Spacer(1, 3*mm))
         story.append(PageBreak())
 
-    # ── KEY CONCEPTS ──────────────────────────────────────────────────────
+    # Key Concepts
     story.append(Spacer(1, 8*mm))
     story.append(Paragraph("KEY CONCEPTS",
         ParagraphStyle("kh", fontSize=24, textColor=WHITE_PDF,
                        fontName="Helvetica-Bold", spaceAfter=4)))
-    story.append(HRFlowable(width="100%", thickness=1,
-                             color=CYAN_PDF, spaceAfter=8))
+    story.append(HRFlowable(width="100%", thickness=1, color=CYAN_PDF, spaceAfter=8))
     PW2 = A4[0] - 30*mm
     for concept in book_data.get("key_concepts",[]):
         row = Table([[
@@ -622,19 +634,18 @@ def build_pdf(subtopic, book_data, output_path):
         story.append(Spacer(1, 2*mm))
     story.append(PageBreak())
 
-    # ── TOOLS PAGE ────────────────────────────────────────────────────────
+    # Tools
     story.append(Spacer(1, 8*mm))
     story.append(Paragraph("TOOLS &amp; STACK",
         ParagraphStyle("th", fontSize=24, textColor=WHITE_PDF,
                        fontName="Helvetica-Bold", spaceAfter=4)))
-    story.append(HRFlowable(width="100%", thickness=1,
-                             color=CYAN_PDF, spaceAfter=8))
+    story.append(HRFlowable(width="100%", thickness=1, color=CYAN_PDF, spaceAfter=8))
     tools = book_data.get("tools",[])
     cols  = 4
     PW3   = A4[0] - 30*mm
-    rows  = [tools[i:i+cols] for i in range(0, len(tools), cols)]
+    rows_t = [tools[i:i+cols] for i in range(0, len(tools), cols)]
     td    = []
-    for row in rows:
+    for row in rows_t:
         while len(row) < cols:
             row.append("")
         td.append([Paragraph(t3, ParagraphStyle("tc", fontSize=10,
@@ -655,21 +666,18 @@ def build_pdf(subtopic, book_data, output_path):
         story.append(tt)
     story.append(PageBreak())
 
-    # ── CONCLUSION PAGE ───────────────────────────────────────────────────
+    # Conclusion
     story.append(Spacer(1, 15*mm))
     story.append(Paragraph("CONCLUSION",
         ParagraphStyle("cnh", fontSize=28, textColor=WHITE_PDF,
                        fontName="Helvetica-Bold", spaceAfter=4,
                        alignment=TA_CENTER)))
-    story.append(HRFlowable(width="60%", thickness=1,
-                             color=CYAN_PDF, spaceAfter=10))
+    story.append(HRFlowable(width="60%", thickness=1, color=CYAN_PDF, spaceAfter=10))
     story.append(Paragraph(book_data.get("conclusion",""),
         ParagraphStyle("cnb", fontSize=12, textColor=LIGHT_GRAY,
                        fontName="Helvetica", leading=18,
                        alignment=TA_JUSTIFY, spaceAfter=15)))
-    story.append(HRFlowable(width="100%", thickness=1,
-                             color=MID_BLUE, spaceAfter=10))
-
+    story.append(HRFlowable(width="100%", thickness=1, color=MID_BLUE, spaceAfter=10))
     if profile_rl:
         ar = Table([[
             profile_rl,
@@ -698,7 +706,6 @@ def build_pdf(subtopic, book_data, output_path):
             ("BOTTOMPADDING",(0,0),(-1,-1),8),
         ]))
         story.append(ar)
-
     story.append(Spacer(1, 8*mm))
     story.append(Paragraph(
         "#AgenticAI  #Cybersecurity  #ZeroTrust  "
@@ -709,204 +716,85 @@ def build_pdf(subtopic, book_data, output_path):
     doc.build(story, onFirstPage=page_bg, onLaterPages=page_bg)
     print(f"PDF saved: {output_path}")
 
-# ── Infographic Creator ───────────────────────────────────────────────────────
+# ── LinkedIn: Upload PDF Document ─────────────────────────────────────────────
 
-def create_infographic(subtopic, data):
-    print(f"[{datetime.now()}] Creating infographic...")
+def upload_pdf_to_linkedin(pdf_path, title, description):
+    """Upload PDF as a LinkedIn document post"""
+    print(f"[{datetime.now()}] Uploading PDF to LinkedIn...")
 
-    W       = 1080
-    seed    = get_seed(subtopic)
-    C       = ACCENT_SETS[seed % len(ACCENT_SETS)]
-    P, S, H = C["P"], C["S"], C["H"]
-    fonts   = load_fonts()
+    # Step 1 — Register upload
+    register_payload = {
+        "registerUploadRequest": {
+            "recipes": ["urn:li:digitalmediaRecipe:feedshare-document"],
+            "owner": f"urn:li:person:{LINKEDIN_PERSON_ID}",
+            "serviceRelationships": [{
+                "relationshipType": "OWNER",
+                "identifier": "urn:li:userGeneratedContent"
+            }]
+        }
+    }
+    r = requests.post(
+        "https://api.linkedin.com/v2/assets?action=registerUpload",
+        headers=LINKEDIN_HEADERS,
+        json=register_payload
+    )
+    r.raise_for_status()
+    rj = r.json()
+    upload_url = rj["value"]["uploadMechanism"][
+        "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]["uploadUrl"]
+    asset = rj["value"]["asset"]
+    print(f"PDF asset registered: {asset}")
 
-    profile_img = load_profile_image(size=120)
+    # Step 2 — Upload PDF bytes
+    with open(pdf_path, "rb") as f:
+        pdf_bytes = f.read()
 
-    COLS    = 3
-    ROWS    = 3
-    PAD     = 8
-    CELL_W  = (W - (COLS+1)*PAD) // COLS
-    CELL_H  = 290
-    GRID_H  = ROWS*CELL_H + (ROWS+1)*PAD
+    upload_r = requests.put(
+        upload_url,
+        headers={
+            "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
+            "Content-Type": "application/octet-stream",
+        },
+        data=pdf_bytes
+    )
+    upload_r.raise_for_status()
+    print(f"PDF uploaded! Asset: {asset}")
+    return asset
 
-    H_HDR   = 190
-    H_BADGE = 55
-    H_TAG   = 38
-    H_FOOT  = 85
-    TOTAL_H = H_HDR+H_BADGE+H_TAG+GRID_H+H_FOOT
+def publish_pdf_post(pdf_asset, post_text, title):
+    """Publish LinkedIn post with PDF document"""
+    print(f"[{datetime.now()}] Publishing PDF post...")
+    payload = {
+        "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
+        "lifecycleState": "PUBLISHED",
+        "specificContent": {
+            "com.linkedin.ugc.ShareContent": {
+                "shareCommentary": {"text": post_text[:3000]},
+                "shareMediaCategory": "DOCUMENT",
+                "media": [{
+                    "status": "READY",
+                    "media": pdf_asset,
+                    "title": {"text": title[:100]},
+                    "description": {"text": "Complete Deep Dive Guide"}
+                }]
+            }
+        },
+        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
+    }
+    r = requests.post(
+        "https://api.linkedin.com/v2/ugcPosts",
+        headers=LINKEDIN_HEADERS,
+        json=payload
+    )
+    r.raise_for_status()
+    post_id = r.json().get("id")
+    print(f"PDF post published! ID: {post_id}")
+    return post_id
 
-    img  = Image.new("RGB", (W, TOTAL_H), BG)
-    draw = ImageDraw.Draw(img)
-
-    for y in range(TOTAL_H):
-        t = y/TOTAL_H
-        draw.line([(0,y),(W,y)], fill=(
-            int(BG[0]+t*5), int(BG[1]+t*5), int(BG[2]+t*8)))
-
-    for x in range(0, W, 45):
-        draw.line([(x,0),(x,TOTAL_H)], fill=(13,17,38), width=1)
-    for y in range(0, TOTAL_H, 45):
-        draw.line([(0,y),(W,y)], fill=(13,17,38), width=1)
-
-    Y = 0
-
-    # Header gradient
-    for y in range(H_HDR):
-        t = y/H_HDR
-        r = int(P[0]*0.5*(1-t)+BG[0]*t)
-        g = int(P[1]*0.5*(1-t)+BG[1]*t)
-        b = int(P[2]*0.5*(1-t)+BG[2]*t)
-        draw.line([(0,Y+y),(W,Y+y)], fill=(
-            max(0,min(255,r)),max(0,min(255,g)),max(0,min(255,b))))
-
-    PROF_SIZE = 120
-    PROF_X    = W - PROF_SIZE - 20
-    PROF_Y    = Y + 20
-
-    if profile_img is not None:
-        img_rgba = img.convert("RGBA")
-        img_rgba.paste(profile_img, (PROF_X, PROF_Y), profile_img)
-        img = img_rgba.convert("RGB")
-        draw = ImageDraw.Draw(img)
-        draw.ellipse([
-            (PROF_X-4, PROF_Y-4),
-            (PROF_X+PROF_SIZE+4, PROF_Y+PROF_SIZE+4)
-        ], outline=P, width=3)
-
-    name_x = PROF_X - 10
-    draw.text((name_x, PROF_Y+PROF_SIZE+8), "AUROBINDA OJHA",
-              font=fonts["h5"], fill=WHITE)
-    draw.text((name_x, PROF_Y+PROF_SIZE+26), "Cybersecurity Expert",
-              font=fonts["xs"], fill=P)
-
-    title_max_w = PROF_X - 30
-    title = data.get("main_title","AI SECURITY DEEP DIVE")
-    words = title.split()
-    mid   = max(1, len(words)//2)
-    l1    = " ".join(words[:mid])
-    l2    = " ".join(words[mid:])
-
-    while draw.textbbox((0,0),l1,font=fonts["h1"])[2] > title_max_w:
-        l1 = l1[:max(5,len(l1)-3)]+".."
-        break
-    while draw.textbbox((0,0),l2,font=fonts["h1"])[2] > title_max_w:
-        l2 = l2[:max(5,len(l2)-3)]+".."
-        break
-
-    draw.text((18, Y+18), l1, font=fonts["h1"], fill=WHITE)
-    draw.text((18, Y+75), l2, font=fonts["h1"], fill=P)
-
-    bb = draw.textbbox((0,0), l2, font=fonts["h1"])
-    draw.rectangle([(18,Y+130),(18+min(bb[2]-bb[0]+30,title_max_w),Y+134)], fill=H)
-    draw.text((20, Y+142), "CYBERSECURITY RESEARCHER & AGENTIC AI EXPERT",
-              font=fonts["xs"], fill=GRAY)
-
-    Y += H_HDR
-
-    # Badges
-    rbox(draw, 0, Y, W, Y+H_BADGE, fill=(13,17,40))
-    badges = data.get("top_badges",[])[:4]
-    bw = W // max(len(badges),1)
-    for i, badge in enumerate(badges):
-        bcx = i*bw + bw//2
-        icon_cx = bcx - 40
-        text_x  = bcx - 20
-        draw_icon(draw, badge.get("icon","shield"),
-                  icon_cx, Y+H_BADGE//2, 18, P)
-        draw.text((text_x, Y+H_BADGE//2-7),
-                  ft(badge.get("label",""),14),
-                  font=fonts["sm"], fill=WHITE)
-        if i < len(badges)-1:
-            draw.line([((i+1)*bw, Y+10),((i+1)*bw, Y+H_BADGE-10)],
-                      fill=DARK_GRAY, width=1)
-    Y += H_BADGE
-
-    # Tagline
-    rbox(draw, 0, Y, W, Y+H_TAG, fill=(10,13,32))
-    tagline = data.get("tagline","Protect. Detect. Respond. Secure.")
-    cx_text(draw, tagline.upper(), W//2, Y+11, fonts["xs"], GRAY)
-    Y += H_TAG
-
-    # Grid sections
-    sections = data.get("sections",[])[:9]
-    for idx, section in enumerate(sections):
-        col = idx % COLS
-        row = idx // COLS
-        cx  = PAD + col*(CELL_W+PAD)
-        cy  = Y + PAD + row*(CELL_H+PAD)
-        color = CELL_COLORS[idx % len(CELL_COLORS)]
-
-        rbox(draw, cx, cy, cx+CELL_W, cy+CELL_H,
-             fill=BG2, outline=color, r=8, w=2)
-        rbox(draw, cx, cy, cx+CELL_W, cy+48, fill=BG3, r=8, w=0)
-        draw.rectangle([(cx,cy+38),(cx+CELL_W,cy+48)], fill=BG2)
-
-        draw.ellipse([(cx+8,cy+8),(cx+30,cy+30)], fill=color)
-        num = str(section.get("number",idx+1))
-        bbox = draw.textbbox((0,0), num, font=fonts["h5"])
-        nw = bbox[2]-bbox[0]
-        draw.text((cx+19-nw//2, cy+12), num, font=fonts["h5"], fill=(0,0,0))
-
-        title_text = ft(section.get("title","Section"), 24)
-        draw.text((cx+38, cy+12), title_text, font=fonts["h5"], fill=color)
-
-        ICON_ROW_Y = cy+50
-        draw_icon(draw, section.get("icon","shield"),
-                  cx+CELL_W//2, ICON_ROW_Y+16, 24, color)
-
-        draw.line([(cx+8, ICON_ROW_Y+36),(cx+CELL_W-8, ICON_ROW_Y+36)],
-                  fill=DARK_GRAY, width=1)
-
-        by = ICON_ROW_Y + 44
-        for bullet in section.get("bullets",[])[:4]:
-            if by+16 > cy+CELL_H-8:
-                break
-            draw.ellipse([(cx+10,by+4),(cx+16,by+10)], fill=color)
-            text_in_box(draw, ft(bullet,30),
-                        cx+20, by, CELL_W-28, 18,
-                        fonts["sm"], OFF_WHITE, line_h=14, padding=2)
-            by += 20
-
-    Y += GRID_H
-
-    # Footer
-    draw.rectangle([(0,Y),(W,Y+H_FOOT)], fill=(7,9,22))
-    draw.rectangle([(0,Y),(W,Y+3)], fill=P)
-
-    if profile_img is not None:
-        small = profile_img.resize((48,48), Image.LANCZOS)
-        img_rgba = img.convert("RGBA")
-        img_rgba.paste(small, (15, Y+18), small)
-        img = img_rgba.convert("RGB")
-        draw = ImageDraw.Draw(img)
-        draw.ellipse([(13,Y+16),(65,Y+68)], outline=P, width=2)
-        draw.text((72, Y+22), "AUROBINDA OJHA", font=fonts["h5"], fill=WHITE)
-        draw.text((72, Y+40),
-                  "Independent Researcher | Cybersecurity & Agentic AI",
-                  font=fonts["xs"], fill=GRAY)
-    else:
-        draw.text((20, Y+20), "AUROBINDA OJHA", font=fonts["h4"], fill=WHITE)
-
-    quote = data.get("bottom_quote","Secure AI. Protect the Future.")
-    cx_text(draw, f'"{ft(quote,55)}"', W//2, Y+30, fonts["sm"], P)
-
-    rbox(draw, W-100, Y+22, W-58, Y+56, fill=(0,119,181), r=6, w=0)
-    cx_text(draw, "in", W-79, Y+30, fonts["h5"], WHITE)
-    rbox(draw, W-52, Y+22, W-10, Y+56, fill=(200,0,0), r=6, w=0)
-    cx_text(draw, "▶", W-31, Y+30, fonts["h5"], WHITE)
-    draw.rectangle([(0,Y+H_FOOT-3),(W,Y+H_FOOT)], fill=P)
-
-    img = img.crop((0, 0, W, TOTAL_H))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=96)
-    buf.seek(0)
-    print("Infographic created!")
-    return buf.read()
-
-# ── LinkedIn Upload ───────────────────────────────────────────────────────────
+# ── LinkedIn: Upload Image ────────────────────────────────────────────────────
 
 def upload_image_to_linkedin(image_data):
-    print(f"[{datetime.now()}] Uploading to LinkedIn...")
+    print(f"[{datetime.now()}] Uploading image to LinkedIn...")
     register_payload = {
         "registerUploadRequest": {
             "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
@@ -932,8 +820,177 @@ def upload_image_to_linkedin(image_data):
                  "Content-Type": "application/octet-stream"},
         data=image_data
     ).raise_for_status()
-    print(f"Uploaded! Asset: {asset}")
+    print(f"Image uploaded! Asset: {asset}")
     return asset
+
+# ── Infographic Creator ───────────────────────────────────────────────────────
+
+def create_infographic(subtopic, data):
+    print(f"[{datetime.now()}] Creating infographic...")
+
+    W       = 1080
+    seed    = get_seed(subtopic)
+    C       = ACCENT_SETS[seed % len(ACCENT_SETS)]
+    P, S, H = C["P"], C["S"], C["H"]
+    fonts   = load_fonts()
+    profile_img = load_profile_image(size=120)
+
+    COLS   = 3
+    ROWS   = 3
+    PAD    = 8
+    CELL_W = (W-(COLS+1)*PAD)//COLS
+    CELL_H = 290
+    GRID_H = ROWS*CELL_H+(ROWS+1)*PAD
+    H_HDR  = 190
+    H_BADGE= 55
+    H_TAG  = 38
+    H_FOOT = 85
+    TOTAL_H= H_HDR+H_BADGE+H_TAG+GRID_H+H_FOOT
+
+    img  = Image.new("RGB", (W, TOTAL_H), BG)
+    draw = ImageDraw.Draw(img)
+
+    for y in range(TOTAL_H):
+        t = y/TOTAL_H
+        draw.line([(0,y),(W,y)], fill=(
+            int(BG[0]+t*5), int(BG[1]+t*5), int(BG[2]+t*8)))
+    for x in range(0, W, 45):
+        draw.line([(x,0),(x,TOTAL_H)], fill=(13,17,38), width=1)
+    for y in range(0, TOTAL_H, 45):
+        draw.line([(0,y),(W,y)], fill=(13,17,38), width=1)
+
+    Y = 0
+
+    # Header gradient
+    for y in range(H_HDR):
+        t = y/H_HDR
+        r = int(P[0]*0.5*(1-t)+BG[0]*t)
+        g = int(P[1]*0.5*(1-t)+BG[1]*t)
+        b = int(P[2]*0.5*(1-t)+BG[2]*t)
+        draw.line([(0,Y+y),(W,Y+y)], fill=(
+            max(0,min(255,r)),max(0,min(255,g)),max(0,min(255,b))))
+
+    PROF_SIZE = 120
+    PROF_X    = W - PROF_SIZE - 20
+    PROF_Y    = Y + 20
+    if profile_img is not None:
+        img_rgba = img.convert("RGBA")
+        img_rgba.paste(profile_img, (PROF_X, PROF_Y), profile_img)
+        img = img_rgba.convert("RGB")
+        draw = ImageDraw.Draw(img)
+        draw.ellipse([(PROF_X-4,PROF_Y-4),
+                      (PROF_X+PROF_SIZE+4,PROF_Y+PROF_SIZE+4)],
+                     outline=P, width=3)
+
+    draw.text((PROF_X-10, PROF_Y+PROF_SIZE+8), "AUROBINDA OJHA",
+              font=fonts["h5"], fill=WHITE)
+    draw.text((PROF_X-10, PROF_Y+PROF_SIZE+26), "Cybersecurity Expert",
+              font=fonts["xs"], fill=P)
+
+    title_max_w = PROF_X - 30
+    title = data.get("main_title","AI SECURITY DEEP DIVE")
+    words = title.split()
+    mid   = max(1, len(words)//2)
+    l1    = " ".join(words[:mid])
+    l2    = " ".join(words[mid:])
+    while draw.textbbox((0,0),l1,font=fonts["h1"])[2] > title_max_w:
+        l1 = l1[:max(5,len(l1)-3)]+".."; break
+    while draw.textbbox((0,0),l2,font=fonts["h1"])[2] > title_max_w:
+        l2 = l2[:max(5,len(l2)-3)]+".."; break
+
+    draw.text((18, Y+18), l1, font=fonts["h1"], fill=WHITE)
+    draw.text((18, Y+75), l2, font=fonts["h1"], fill=P)
+    bb = draw.textbbox((0,0), l2, font=fonts["h1"])
+    draw.rectangle([(18,Y+130),(18+min(bb[2]-bb[0]+30,title_max_w),Y+134)], fill=H)
+    draw.text((20, Y+142), "CYBERSECURITY RESEARCHER & AGENTIC AI EXPERT",
+              font=fonts["xs"], fill=GRAY)
+    Y += H_HDR
+
+    # Badges
+    rbox(draw, 0, Y, W, Y+H_BADGE, fill=(13,17,40))
+    badges = data.get("top_badges",[])[:4]
+    bw = W // max(len(badges),1)
+    for i, badge in enumerate(badges):
+        bcx = i*bw + bw//2
+        draw_icon(draw, badge.get("icon","shield"), bcx-40, Y+H_BADGE//2, 18, P)
+        draw.text((bcx-20, Y+H_BADGE//2-7), ft(badge.get("label",""),14),
+                  font=fonts["sm"], fill=WHITE)
+        if i < len(badges)-1:
+            draw.line([((i+1)*bw,Y+10),((i+1)*bw,Y+H_BADGE-10)],
+                      fill=DARK_GRAY, width=1)
+    Y += H_BADGE
+
+    # Tagline
+    rbox(draw, 0, Y, W, Y+H_TAG, fill=(10,13,32))
+    cx_text(draw, data.get("tagline","").upper(), W//2, Y+11, fonts["xs"], GRAY)
+    Y += H_TAG
+
+    # Grid
+    sections = data.get("sections",[])[:9]
+    for idx, section in enumerate(sections):
+        col   = idx % COLS
+        row   = idx // COLS
+        cx    = PAD + col*(CELL_W+PAD)
+        cy    = Y + PAD + row*(CELL_H+PAD)
+        color = CELL_COLORS[idx % len(CELL_COLORS)]
+
+        rbox(draw, cx, cy, cx+CELL_W, cy+CELL_H, fill=BG2, outline=color, r=8, w=2)
+        rbox(draw, cx, cy, cx+CELL_W, cy+48, fill=BG3, r=8, w=0)
+        draw.rectangle([(cx,cy+38),(cx+CELL_W,cy+48)], fill=BG2)
+
+        draw.ellipse([(cx+8,cy+8),(cx+30,cy+30)], fill=color)
+        num  = str(section.get("number",idx+1))
+        bbox = draw.textbbox((0,0), num, font=fonts["h5"])
+        nw   = bbox[2]-bbox[0]
+        draw.text((cx+19-nw//2, cy+12), num, font=fonts["h5"], fill=(0,0,0))
+        draw.text((cx+38, cy+12), ft(section.get("title",""),24),
+                  font=fonts["h5"], fill=color)
+
+        ICON_Y = cy+50
+        draw_icon(draw, section.get("icon","shield"),
+                  cx+CELL_W//2, ICON_Y+16, 24, color)
+        draw.line([(cx+8,ICON_Y+36),(cx+CELL_W-8,ICON_Y+36)],
+                  fill=DARK_GRAY, width=1)
+
+        by = ICON_Y + 44
+        for bullet in section.get("bullets",[])[:4]:
+            if by+16 > cy+CELL_H-8:
+                break
+            draw.ellipse([(cx+10,by+4),(cx+16,by+10)], fill=color)
+            text_in_box(draw, ft(bullet,30), cx+20, by, CELL_W-28, 18,
+                        fonts["sm"], OFF_WHITE, line_h=14, padding=2)
+            by += 20
+
+    Y += GRID_H
+
+    # Footer
+    draw.rectangle([(0,Y),(W,Y+H_FOOT)], fill=(7,9,22))
+    draw.rectangle([(0,Y),(W,Y+3)], fill=P)
+    if profile_img is not None:
+        small = profile_img.resize((48,48), Image.LANCZOS)
+        img_rgba = img.convert("RGBA")
+        img_rgba.paste(small, (15, Y+18), small)
+        img = img_rgba.convert("RGB")
+        draw = ImageDraw.Draw(img)
+        draw.ellipse([(13,Y+16),(65,Y+68)], outline=P, width=2)
+        draw.text((72, Y+22), "AUROBINDA OJHA", font=fonts["h5"], fill=WHITE)
+        draw.text((72, Y+40),
+                  "Independent Researcher | Cybersecurity & Agentic AI",
+                  font=fonts["xs"], fill=GRAY)
+    quote = data.get("bottom_quote","Secure AI. Protect the Future.")
+    cx_text(draw, f'"{ft(quote,55)}"', W//2, Y+30, fonts["sm"], P)
+    rbox(draw, W-100, Y+22, W-58, Y+56, fill=(0,119,181), r=6, w=0)
+    cx_text(draw, "in", W-79, Y+30, fonts["h5"], WHITE)
+    rbox(draw, W-52, Y+22, W-10, Y+56, fill=(200,0,0), r=6, w=0)
+    cx_text(draw, "▶", W-31, Y+30, fonts["h5"], WHITE)
+    draw.rectangle([(0,Y+H_FOOT-3),(W,Y+H_FOOT)], fill=P)
+
+    img = img.crop((0, 0, W, TOTAL_H))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=96)
+    buf.seek(0)
+    print("Infographic created!")
+    return buf.read()
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -941,21 +998,17 @@ def job_post():
     subtopic = get_daily_topic()
     print(f"[{datetime.now()}] Today: {subtopic}")
 
-    # Generate LinkedIn post text
+    # ── POST 1: Image post ────────────────────────────────────────────────
+    print(f"[{datetime.now()}] === POST 1: Infographic Image ===")
     content = ai_generate_post(subtopic)
     print(f"Post: {content[:100]}...")
 
-    # Generate infographic data
     data = ai_generate_infographic_data(subtopic)
-    print(f"Title: {data.get('main_title')}")
+    print(f"Infographic title: {data.get('main_title')}")
 
-    # Create infographic image
     image_data = create_infographic(subtopic, data)
-
-    # Upload image to LinkedIn
     asset = upload_image_to_linkedin(image_data)
 
-    # Publish LinkedIn post
     payload = {
         "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
         "lifecycleState": "PUBLISHED",
@@ -978,18 +1031,29 @@ def job_post():
         headers=LINKEDIN_HEADERS, json=payload
     )
     r.raise_for_status()
-    print(f"[{datetime.now()}] Published! ID: {r.json().get('id')}")
+    print(f"[{datetime.now()}] Image post published! ID: {r.json().get('id')}")
 
-    # Generate PDF book
+    # ── POST 2: PDF Document post ─────────────────────────────────────────
+    print(f"[{datetime.now()}] === POST 2: PDF Document ===")
     try:
-        print(f"[{datetime.now()}] Generating PDF book...")
         book_data = ai_generate_book_content(subtopic)
+        book_title = book_data.get("title", subtopic)
+        print(f"Book title: {book_title}")
+
         safe = subtopic.lower().replace(" ","_").replace("/","_")[:35]
         pdf_path = f"/tmp/{safe}.pdf"
         build_pdf(subtopic, book_data, pdf_path)
-        print(f"[{datetime.now()}] PDF ready: {pdf_path}")
+
+        pdf_asset = upload_pdf_to_linkedin(pdf_path, book_title,
+                                           book_data.get("subtitle",""))
+
+        pdf_post_text = ai_generate_pdf_post(subtopic, book_title)
+        publish_pdf_post(pdf_asset, pdf_post_text, book_title)
+
+        print(f"[{datetime.now()}] PDF post published!")
+
     except Exception as e:
-        print(f"PDF generation failed: {e}")
+        print(f"[{datetime.now()}] PDF post failed: {e}")
 
 if __name__ == "__main__":
     if RUN_MODE == "post":
