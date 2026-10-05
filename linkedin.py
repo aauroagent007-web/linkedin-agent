@@ -1040,21 +1040,59 @@ def create_infographic(subtopic, data):
     print("Infographic created!")
     return buf.read()
 
+# ── LinkedIn: Text-only Post ─────────────────────────────────────────────────
+
+def validate_linkedin_token():
+    """Validate the configured member access token before generating content."""
+    print(f"[{datetime.now()}] Validating LinkedIn access token...")
+    response = requests.get(
+        "https://api.linkedin.com/v2/userinfo",
+        headers={"Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}"},
+        timeout=30,
+    )
+    if not response.ok:
+        _linkedin_error(response, "authentication")
+    profile = response.json()
+    print(
+        f"LinkedIn authentication successful: "
+        f"{profile.get('name', 'member')}"
+    )
+    return profile
+
+
+def publish_text_post(post_text):
+    """Publish a text-only organic post using LinkedIn's current Posts API."""
+    payload = {
+        "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
+        "commentary": post_text[:3000],
+        "visibility": "PUBLIC",
+        "distribution": {
+            "feedDistribution": "MAIN_FEED",
+            "targetEntities": [],
+            "thirdPartyDistributionChannels": [],
+        },
+        "lifecycleState": "PUBLISHED",
+        "isReshareDisabledByAuthor": False,
+    }
+    return _linkedin_post(payload, "text post")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def job_post():
+    # Authenticate first so we do not spend OpenAI usage if LinkedIn credentials fail.
+    validate_linkedin_token()
+
     subtopic = get_daily_topic()
     print(f"[{datetime.now()}] Today: {subtopic}")
 
-    # ── POST 1: Image upload/post DISABLED ─────────────────────────────────
-    # Image generation and LinkedIn image upload/publishing are intentionally
-    # disabled. The PDF workflow below remains active.
-    print(f"[{datetime.now()}] === POST 1: Infographic Image DISABLED ===")
-    print("LinkedIn image upload/publishing is disabled.")
+    # Text-only LinkedIn post. No image or PDF generation/upload is performed.
+    print(f"[{datetime.now()}] === TEXT-ONLY LINKEDIN POST ===")
+    content = ai_generate_post(subtopic)
+    print(f"Post preview: {content[:300]}...")
 
-    # LinkedIn media posting is disabled.
-    print(f"[{datetime.now()}] === LinkedIn MEDIA POSTS DISABLED ===")
-    print("Image and PDF generation/upload/publishing are disabled.")
+    post_id = publish_text_post(content)
+    print(f"[{datetime.now()}] Text post completed. Post ID: {post_id}")
 
 
 if __name__ == "__main__":
