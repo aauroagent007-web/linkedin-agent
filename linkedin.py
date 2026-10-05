@@ -868,23 +868,8 @@ def publish_pdf_post(pdf_asset, post_text, title):
 
 # ── LinkedIn: Upload Image ────────────────────────────────────────────────────
 
-def upload_image_to_linkedin(image_data):
-    """Upload an image using the current LinkedIn Images API."""
-    print(f"[{datetime.now()}] Uploading image to LinkedIn...")
-
-    upload_url, image_urn = _initialize_media_upload(
-        LINKEDIN_IMAGE_INIT_URL, "image"
-    )
-
-    _upload_binary(
-        upload_url,
-        image_data,
-        "image/jpeg",
-        "image",
-    )
-
-    print(f"Image uploaded! Image: {image_urn}")
-    return image_urn
+# ── LinkedIn image upload DISABLED ─────────────────────────────────────
+# Image upload/publishing has intentionally been removed from the workflow.
 
 # ── Infographic Creator ───────────────────────────────────────────────────────
 
@@ -1061,59 +1046,16 @@ def job_post():
     subtopic = get_daily_topic()
     print(f"[{datetime.now()}] Today: {subtopic}")
 
-    # ── POST 1: Image post ────────────────────────────────────────────────
-    print(f"[{datetime.now()}] === POST 1: Infographic Image ===")
-    content = ai_generate_post(subtopic)
-    print(f"Post: {content[:100]}...")
+    # ── POST 1: Image upload/post DISABLED ─────────────────────────────────
+    # Image generation and LinkedIn image upload/publishing are intentionally
+    # disabled. The PDF workflow below remains active.
+    print(f"[{datetime.now()}] === POST 1: Infographic Image DISABLED ===")
+    print("LinkedIn image upload/publishing is disabled.")
 
-    data = ai_generate_infographic_data(subtopic)
-    print(f"Infographic title: {data.get('main_title')}")
+    # LinkedIn media posting is disabled.
+    print(f"[{datetime.now()}] === LinkedIn MEDIA POSTS DISABLED ===")
+    print("Image and PDF generation/upload/publishing are disabled.")
 
-    image_data = create_infographic(subtopic, data)
-    asset = upload_image_to_linkedin(image_data)
-
-    payload = {
-        "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
-        "commentary": content[:3000],
-        "visibility": "PUBLIC",
-        "distribution": {
-            "feedDistribution": "MAIN_FEED",
-            "targetEntities": [],
-            "thirdPartyDistributionChannels": []
-        },
-        "content": {
-            "media": {
-                "title": data.get("main_title", subtopic)[:200],
-                "altText": data.get("main_title", subtopic)[:4086],
-                "id": asset
-            }
-        },
-        "lifecycleState": "PUBLISHED",
-        "isReshareDisabledByAuthor": False
-    }
-    _linkedin_post(payload, "image post")
-
-    # ── POST 2: PDF Document post ─────────────────────────────────────────
-    print(f"[{datetime.now()}] === POST 2: PDF Document ===")
-    try:
-        book_data = ai_generate_book_content(subtopic)
-        book_title = book_data.get("title", subtopic)
-        print(f"Book title: {book_title}")
-
-        safe = subtopic.lower().replace(" ","_").replace("/","_")[:35]
-        pdf_path = f"/tmp/{safe}.pdf"
-        build_pdf(subtopic, book_data, pdf_path)
-
-        pdf_asset = upload_pdf_to_linkedin(pdf_path, book_title,
-                                           book_data.get("subtitle",""))
-
-        pdf_post_text = ai_generate_pdf_post(subtopic, book_title)
-        publish_pdf_post(pdf_asset, pdf_post_text, book_title)
-
-        print(f"[{datetime.now()}] PDF post published!")
-
-    except Exception as e:
-        print(f"[{datetime.now()}] PDF post failed: {e}")
 
 if __name__ == "__main__":
     if RUN_MODE == "post":
