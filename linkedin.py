@@ -31,18 +31,26 @@ RUN_MODE = os.environ.get("RUN_MODE", "post")
 
 openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
+LINKEDIN_API_VERSION = os.environ.get("LINKEDIN_API_VERSION", "202609")
+
 LINKEDIN_HEADERS = {
     "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
     "Content-Type": "application/json",
+    "Linkedin-Version": LINKEDIN_API_VERSION,
     "X-Restli-Protocol-Version": "2.0.0"
 }
 
-PROFILE_IMAGE_URL = (
-    "https://media.licdn.com/dms/image/v2/C4D03AQHnswiAnQJbMg/"
-    "profile-displayphoto-shrink_800_800/"
-    "profile-displayphoto-shrink_800_800/0/1516492188066"
-    "?e=1781136000&v=beta&t=fSaDr16J6btRG0W3a32V__c-slLPrTscWAGJGI6vxEE"
+# Optional stable/public profile image URL.
+# Do not use an old signed media.licdn.com URL because LinkedIn CDN URLs expire.
+PROFILE_IMAGE_URL = os.environ.get("PROFILE_IMAGE_URL", "").strip()
+
+LINKEDIN_IMAGE_INIT_URL = (
+    "https://api.linkedin.com/rest/images?action=initializeUpload"
 )
+LINKEDIN_DOCUMENT_INIT_URL = (
+    "https://api.linkedin.com/rest/documents?action=initializeUpload"
+)
+LINKEDIN_POSTS_URL = "https://api.linkedin.com/rest/posts"
 
 DAILY_TOPICS = [
     "Prompt Injection Attacks on AI Agents",
@@ -412,6 +420,9 @@ def cx_text(draw, text, cx, y, font, color):
 # ── Profile Image (Pillow) ────────────────────────────────────────────────────
 
 def load_profile_image(size=110):
+    if not PROFILE_IMAGE_URL:
+        print("Profile image skipped: PROFILE_IMAGE_URL is not configured.")
+        return None
     try:
         resp = requests.get(PROFILE_IMAGE_URL, timeout=15)
         resp.raise_for_status()
@@ -432,6 +443,8 @@ def load_profile_image(size=110):
 # ── Profile Image (ReportLab) ─────────────────────────────────────────────────
 
 def get_profile_image_rl(size_mm=32):
+    if not PROFILE_IMAGE_URL:
+        return None
     try:
         resp = requests.get(PROFILE_IMAGE_URL, timeout=15)
         resp.raise_for_status()
@@ -716,112 +729,162 @@ def build_pdf(subtopic, book_data, output_path):
     doc.build(story, onFirstPage=page_bg, onLaterPages=page_bg)
     print(f"PDF saved: {output_path}")
 
-# ── LinkedIn: Upload PDF Document ─────────────────────────────────────────────
+# ── LinkedIn API helpers ────────────────────────────────────────────────────────
 
-def upload_pdf_to_linkedin(pdf_path, title, description):
-    """Upload PDF as a LinkedIn document post"""
-    print(f"[{datetime.now()}] Uploading PDF to LinkedIn...")
+def _linkedin_error(response, operation):
+    """Print a useful LinkedIn API error without exposing the access token."""
+    try:
+        body = response.json()
+        detail = json.dumps(body, ensure_ascii=False)
+    except Exception:
+        detail = response.text[:4000]
+    print(f"LinkedIn {operation} failed: HTTP {response.status_code}: {detail}")
+    response.raise_for_status()
 
-    # Step 1 — Register upload
-    register_payload = {
-        "registerUploadRequest": {
-            "recipes": ["urn:li:digitalmediaRecipe:feedshare-document"],
-            "owner": f"urn:li:person:{LINKEDIN_PERSON_ID}",
-            "serviceRelationships": [{
-                "relationshipType": "OWNER",
-                "identifier": "urn:li:userGeneratedContent"
-            }]
+
+def _linkedin_post(payload, operation):
+    """Create a current LinkedIn REST post and return its post URN."""
+    response = requests.post(
+        LINKEDIN_POSTS_URL,
+        headers=LINKEDIN_HEADERS,
+        json=payload,
+        timeout=60,
+    )
+    if not response.ok:
+        _linkedin_error(response, operation)
+
+    post_id = response.headers.get("x-restli-id")
+    if not post_id:
+        try:
+            post_id = response.json().get("id")
+        except Exception:
+            post_id = None
+
+    print(f"LinkedIn {operation} published! ID: {post_id or 'not returned'}")
+    return post_id
+
+
+def _initialize_media_upload(endpoint, media_type):
+    """Initialize an Image or Document upload using the current REST API."""
+    owner = f"urn:li:person:{LINKEDIN_PERSON_ID}"
+    payload = {
+        "initializeUploadRequest": {
+            "owner": owner
         }
     }
-    r = requests.post(
-        "https://api.linkedin.com/v2/assets?action=registerUpload",
+
+    response = requests.post(
+        endpoint,
         headers=LINKEDIN_HEADERS,
-        json=register_payload
+        json=payload,
+        timeout=60,
     )
-    r.raise_for_status()
-    rj = r.json()
-    upload_url = rj["value"]["uploadMechanism"][
-        "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]["uploadUrl"]
-    asset = rj["value"]["asset"]
-    print(f"PDF asset registered: {asset}")
+    if not response.ok:
+        _linkedin_error(response, f"{media_type} initialization")
 
-    # Step 2 — Upload PDF bytes
-    with open(pdf_path, "rb") as f:
-        pdf_bytes = f.read()
+    data = response.json().get("value", {})
+    upload_url = data.get("uploadUrl")
+    media_urn = data.get("image") if media_type == "image" else data.get("document")
 
-    upload_r = requests.put(
+    if not upload_url or not media_urn:
+        raise RuntimeError(
+            f"LinkedIn {media_type} initialization returned an unexpected response: "
+            f"{json.dumps(data, ensure_ascii=False)}"
+        )
+
+    print(f"LinkedIn {media_type} initialized: {media_urn}")
+    return upload_url, media_urn
+
+
+def _upload_binary(upload_url, content, content_type, media_type):
+    """Upload bytes to the signed LinkedIn upload URL."""
+    response = requests.put(
         upload_url,
         headers={
             "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
-            "Content-Type": "application/octet-stream",
+            "Content-Type": content_type,
         },
-        data=pdf_bytes
+        data=content,
+        timeout=120,
     )
-    upload_r.raise_for_status()
-    print(f"PDF uploaded! Asset: {asset}")
-    return asset
+    if not response.ok:
+        _linkedin_error(response, f"{media_type} binary upload")
+
+    print(f"LinkedIn {media_type} binary upload completed: HTTP {response.status_code}")
+
+
+# ── LinkedIn: Upload PDF Document ─────────────────────────────────────────────
+
+def upload_pdf_to_linkedin(pdf_path, title, description):
+    """Upload PDF as a LinkedIn document using the current Documents API."""
+    print(f"[{datetime.now()}] Uploading PDF to LinkedIn...")
+
+    upload_url, document_urn = _initialize_media_upload(
+        LINKEDIN_DOCUMENT_INIT_URL, "document"
+    )
+
+    with open(pdf_path, "rb") as f:
+        pdf_bytes = f.read()
+
+    if len(pdf_bytes) > 100 * 1024 * 1024:
+        raise ValueError("LinkedIn document upload exceeds the 100 MB limit.")
+
+    _upload_binary(
+        upload_url,
+        pdf_bytes,
+        "application/pdf",
+        "PDF",
+    )
+
+    print(f"PDF uploaded! Document: {document_urn}")
+    return document_urn
+
 
 def publish_pdf_post(pdf_asset, post_text, title):
-    """Publish LinkedIn post with PDF document"""
+    """Publish a LinkedIn post containing a PDF document."""
     print(f"[{datetime.now()}] Publishing PDF post...")
+
     payload = {
         "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
-        "lifecycleState": "PUBLISHED",
-        "specificContent": {
-            "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": {"text": post_text[:3000]},
-                "shareMediaCategory": "DOCUMENT",
-                "media": [{
-                    "status": "READY",
-                    "media": pdf_asset,
-                    "title": {"text": title[:100]},
-                    "description": {"text": "Complete Deep Dive Guide"}
-                }]
+        "commentary": post_text[:3000],
+        "visibility": "PUBLIC",
+        "distribution": {
+            "feedDistribution": "MAIN_FEED",
+            "targetEntities": [],
+            "thirdPartyDistributionChannels": []
+        },
+        "content": {
+            "media": {
+                "title": title[:200],
+                "id": pdf_asset
             }
         },
-        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
+        "lifecycleState": "PUBLISHED",
+        "isReshareDisabledByAuthor": False
     }
-    r = requests.post(
-        "https://api.linkedin.com/v2/ugcPosts",
-        headers=LINKEDIN_HEADERS,
-        json=payload
-    )
-    r.raise_for_status()
-    post_id = r.json().get("id")
-    print(f"PDF post published! ID: {post_id}")
-    return post_id
+
+    return _linkedin_post(payload, "PDF post")
+
 
 # ── LinkedIn: Upload Image ────────────────────────────────────────────────────
 
 def upload_image_to_linkedin(image_data):
+    """Upload an image using the current LinkedIn Images API."""
     print(f"[{datetime.now()}] Uploading image to LinkedIn...")
-    register_payload = {
-        "registerUploadRequest": {
-            "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
-            "owner": f"urn:li:person:{LINKEDIN_PERSON_ID}",
-            "serviceRelationships": [{
-                "relationshipType": "OWNER",
-                "identifier": "urn:li:userGeneratedContent"
-            }]
-        }
-    }
-    r = requests.post(
-        "https://api.linkedin.com/v2/assets?action=registerUpload",
-        headers=LINKEDIN_HEADERS, json=register_payload
+
+    upload_url, image_urn = _initialize_media_upload(
+        LINKEDIN_IMAGE_INIT_URL, "image"
     )
-    r.raise_for_status()
-    rj = r.json()
-    upload_url = rj["value"]["uploadMechanism"][
-        "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]["uploadUrl"]
-    asset = rj["value"]["asset"]
-    requests.put(
+
+    _upload_binary(
         upload_url,
-        headers={"Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
-                 "Content-Type": "application/octet-stream"},
-        data=image_data
-    ).raise_for_status()
-    print(f"Image uploaded! Asset: {asset}")
-    return asset
+        image_data,
+        "image/jpeg",
+        "image",
+    )
+
+    print(f"Image uploaded! Image: {image_urn}")
+    return image_urn
 
 # ── Infographic Creator ───────────────────────────────────────────────────────
 
@@ -1011,27 +1074,24 @@ def job_post():
 
     payload = {
         "author": f"urn:li:person:{LINKEDIN_PERSON_ID}",
-        "lifecycleState": "PUBLISHED",
-        "specificContent": {
-            "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": {"text": content[:3000]},
-                "shareMediaCategory": "IMAGE",
-                "media": [{
-                    "status": "READY",
-                    "description": {"text": data.get("main_title", subtopic)},
-                    "media": asset,
-                    "title": {"text": data.get("main_title", subtopic)[:100]}
-                }]
+        "commentary": content[:3000],
+        "visibility": "PUBLIC",
+        "distribution": {
+            "feedDistribution": "MAIN_FEED",
+            "targetEntities": [],
+            "thirdPartyDistributionChannels": []
+        },
+        "content": {
+            "media": {
+                "title": data.get("main_title", subtopic)[:200],
+                "altText": data.get("main_title", subtopic)[:4086],
+                "id": asset
             }
         },
-        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
+        "lifecycleState": "PUBLISHED",
+        "isReshareDisabledByAuthor": False
     }
-    r = requests.post(
-        "https://api.linkedin.com/v2/ugcPosts",
-        headers=LINKEDIN_HEADERS, json=payload
-    )
-    r.raise_for_status()
-    print(f"[{datetime.now()}] Image post published! ID: {r.json().get('id')}")
+    _linkedin_post(payload, "image post")
 
     # ── POST 2: PDF Document post ─────────────────────────────────────────
     print(f"[{datetime.now()}] === POST 2: PDF Document ===")
