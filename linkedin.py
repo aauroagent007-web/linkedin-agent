@@ -60,43 +60,30 @@ def linkedin_error(response, operation):
 
 def validate_linkedin_token():
     """
-    Validate the Bearer token and return the authenticated member ID.
+    Validate that a LinkedIn access token is present without calling
+    /v2/userinfo. The actual token validation is performed by the
+    /rest/posts request below.
 
-    /v2/userinfo requires an OIDC-enabled LinkedIn access token.
+    LINKEDIN_PERSON_ID must be the LinkedIn member ID associated with the
+    access token because the Posts API requires an author URN.
     """
-    print(f"[{datetime.now()}] Validating LinkedIn access token...")
+    print(f"[{datetime.now()}] LinkedIn token check...")
 
-    response = requests.get(
-        "https://api.linkedin.com/v2/userinfo",
-        headers={
-            "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}"
-        },
-        timeout=30,
-    )
+    if not LINKEDIN_ACCESS_TOKEN.strip():
+        raise RuntimeError("LINKEDIN_ACCESS_TOKEN is empty.")
 
-    if response.status_code != 200:
-        linkedin_error(response, "authentication")
-
-    profile = response.json()
-    member_id = str(profile.get("sub", "")).strip()
-
-    if not member_id:
+    if not LINKEDIN_PERSON_ID:
         raise RuntimeError(
-            "LinkedIn authentication succeeded, but no member ID "
-            "was returned by /v2/userinfo."
+            "LINKEDIN_PERSON_ID is required when /v2/userinfo validation "
+            "is disabled. Set it to the LinkedIn member ID associated "
+            "with the access token."
         )
 
-    name = profile.get("name", "Unknown")
-    print(f"LinkedIn authentication successful: {name}")
-    print(f"Authenticated LinkedIn member ID: {member_id}")
+    print("LinkedIn access token is present.")
+    print(f"LinkedIn member ID configured: {LINKEDIN_PERSON_ID}")
+    print("The token will be validated by the LinkedIn Posts API.")
 
-    if LINKEDIN_PERSON_ID and LINKEDIN_PERSON_ID != member_id:
-        print(
-            "WARNING: LINKEDIN_PERSON_ID does not match the authenticated "
-            "token member. The authenticated member ID will be used."
-        )
-
-    return member_id
+    return LINKEDIN_PERSON_ID
 
 
 # ---------------------------------------------------------------------------
