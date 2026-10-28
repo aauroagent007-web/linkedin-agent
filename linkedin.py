@@ -45,42 +45,540 @@ PROFILE_IMAGE_URL = (
 )
 
 DAILY_TOPICS = [
+    # 1. Advanced AI and Superintelligence Research
+    "Artificial Superintelligence (ASI): Research Frontiers and Architectures",
+    "ASI-Oriented Intelligence: Adaptive Reasoning, Memory, and Self-Evaluation",
+    "Artificial General Intelligence (AGI) vs ASI: Capabilities and Limitations",
+    "Recursive Self-Improvement in AI: Safety, Evaluation, and Control",
+    "AI Cognitive Architectures for Long-Horizon Planning",
+    "Predictive Intelligence Systems Using Advanced AI",
+    "World Models and Model-Based Reasoning for Autonomous AI",
+    "Neuro-Symbolic AI for Advanced Reasoning and Decision-Making",
+    "Metacognition and Self-Reflection in AI Systems",
+    "Continual Learning and Adaptive Intelligence Architectures",
+
+    # 2. AI Swarms and Multi-Agent Intelligence
+    "AI Swarm Intelligence: Distributed Reasoning and Collective Intelligence",
+    "Multi-Agent AI Systems: Architectures, Coordination, and Communication",
+    "Hierarchical AI Agent Swarms and Dynamic Task Allocation",
+    "Emergent Behavior in Multi-Agent AI Systems",
+    "Swarm Intelligence for Autonomous Cyber Defense",
+    "Agent-to-Agent Communication Protocols and Security",
+    "Multi-Agent Reinforcement Learning for Collaborative Intelligence",
+    "Decentralized AI Swarms and Distributed Decision-Making",
+    "Consensus Mechanisms for Autonomous AI Agents",
+    "Swarm Intelligence for Predictive Threat Detection",
+    "Self-Organizing AI Agents and Adaptive Coordination",
+    "Heterogeneous AI Agent Teams for Complex Problem Solving",
+    "Agent Orchestration Using Graph-Based Workflows",
+    "Collective Memory and Knowledge Sharing Across AI Agents",
+    "Multi-Agent Evaluation, Benchmarking, and Failure Analysis",
+
+    # 3. Agentic AI and Autonomous Systems
+    "Agentic AI Architectures for Autonomous Research",
+    "Autonomous AI Planning and Goal Decomposition",
+    "Tool-Using AI Agents and Secure Function Calling",
+    "Long-Horizon Autonomous Agents with Persistent Memory",
+    "AI Agent Self-Evaluation and Reflection Loops",
+    "Agentic Workflow Optimization and Dynamic Routing",
+    "Human-in-the-Loop Control for Autonomous AI",
+    "AI Agents with Retrieval-Augmented Generation (RAG)",
+    "Multi-Agent Systems Using CrewAI, LangGraph, and AutoGen",
+    "Autonomous AI Research Agents and Evidence Verification",
+    "Agentic AI Reliability and Task Completion Evaluation",
+    "AI Agent Memory Architectures and Knowledge Graphs",
+    "Model Context Protocol (MCP) Security for AI Agents",
+    "Interoperability Standards for Multi-Agent AI Systems",
+    "Autonomous AI Agents: Planning, Execution, and Governance",
+
+    # 4. AI Security and Adversarial Research
     "Prompt Injection Attacks on AI Agents",
+    "Indirect Prompt Injection and Untrusted Data Boundaries",
     "Zero Trust Architecture for AI Systems",
-    "Autonomous Threat Hunting with AI",
+    "LLM Security and Jailbreaking Prevention",
     "AI Supply Chain Security Risks",
     "Multi-Agent System Vulnerabilities",
-    "LLM Security and Jailbreaking Prevention",
-    "Agentic AI in SOC Operations",
-    "AI-Powered Malware Detection",
     "Adversarial Machine Learning Attacks",
-    "AI Agent Authentication Frameworks",
+    "AI Model Poisoning and Data Integrity Protection",
+    "AI Agent Authentication and Authorization Frameworks",
+    "AI Agent Identity Management and Credential Security",
+    "AI Agent Sandboxing and Least-Privilege Execution",
+    "Tool-Call Abuse and Excessive Agency in AI Systems",
+    "AI Memory Poisoning and Persistent Context Attacks",
+    "RAG Pipeline Security and Vector Database Attacks",
+    "Model Theft, Extraction, and Intellectual Property Protection",
+    "AI Inference Endpoint Security and Rate Limiting",
+    "LLM Denial-of-Service and Resource Exhaustion Attacks",
+    "Multimodal AI Security: Image, Audio, and Video Attacks",
+    "AI Safety Guardrails and Policy Enforcement",
+    "Secure AI Model Deployment and Runtime Protection",
+
+    # 5. AI-Powered Cybersecurity and Autonomous Defense
+    "Autonomous Threat Hunting with AI",
+    "Agentic AI in Security Operations Centers (SOC)",
+    "AI-Powered Malware Detection and Classification",
     "Autonomous Incident Response Systems",
-    "AI Red Teaming Methodologies",
-    "Neural Network Security Layers",
-    "AI Governance and Compliance",
-    "Federated Learning Security",
-    "AI Model Poisoning Prevention",
-    "Autonomous Vulnerability Assessment",
-    "AI-Driven Phishing Detection",
-    "Machine Learning in SIEM Systems",
-    "AI Agent Identity Management",
-    "Behavioral Analytics with AI Agents",
-    "AI Security Operations Center",
-    "Deepfake Detection with AI",
-    "AI Powered Ransomware Defense",
-    "Cognitive Security with Agentic AI",
-    "AI in Digital Forensics",
-    "Autonomous Patch Management Systems",
-    "AI Threat Intelligence Platforms",
-    "Explainable AI in Cybersecurity",
-    "AI Agent Sandboxing Techniques",
+    "AI Red Teaming and Adversarial Security Evaluation",
+    "AI-Driven Vulnerability Assessment and Prioritization",
+    "AI-Assisted Secure Code Review and SAST",
+    "AI-Powered Software Composition Analysis",
+    "AI Security Testing for APIs and Microservices",
+    "Autonomous Attack Surface Management",
+    "AI-Powered External Threat Intelligence",
+    "AI-Assisted Digital Forensics and Incident Investigation",
+    "AI-Driven Detection Engineering and SIEM Rule Generation",
+    "AI-Powered Endpoint Detection and Response (EDR)",
+    "Predictive Cyber Threat Intelligence and Early Warning",
+    "AI-Assisted Threat Modeling with MITRE ATT&CK",
+    "Autonomous Security Validation and Continuous Control Testing",
+    "AI-Based Vulnerability Exploitability Prediction",
+    "AI-Assisted Cloud Security Posture Management",
+    "Autonomous Security Configuration and Compliance Validation",
+
+    # 6. Predictive Intelligence and Threat Analytics
+    "Predictive Cybersecurity Using Machine Learning and AI",
+    "Graph Neural Networks for Threat Intelligence",
+    "Knowledge Graphs for Cyber Threat Correlation",
+    "Temporal Graph Learning for Attack Prediction",
+    "Bayesian Reasoning for Cyber Risk Prediction",
+    "Causal AI for Root-Cause Analysis of Security Incidents",
+    "Explainable AI for Security Alert Prioritization",
+    "Behavioral Analytics Using Multi-Agent AI",
+    "Anomaly Detection in Network and Endpoint Telemetry",
+    "Federated Threat Intelligence and Privacy-Preserving Learning",
+    "AI-Based Insider Threat Detection",
+    "Cross-Domain Security Event Correlation",
+    "Cyber Attack Path Prediction Using AI",
+    "Uncertainty Quantification in AI-Based Threat Detection",
+    "AI-Based Risk Scoring and Adaptive Security Prioritization",
+
+    # 7. AI Governance, Trust, and Safety
+    "AI Governance Frameworks for Autonomous Systems",
+    "AI Alignment and Control for Increasingly Capable Systems",
+    "Scalable Oversight of Advanced AI Systems",
+    "AI Interpretability and Mechanistic Interpretability Research",
+    "AI Agent Accountability and Decision Traceability",
+    "AI Risk Management Using NIST AI RMF",
+    "ISO/IEC 42001 AI Management System Security",
+    "AI Red Teaming and Safety Benchmark Development",
+    "AI Sandboxing and Containment for High-Capability Models",
+    "Runtime Monitoring and Policy Enforcement for AI Agents",
+    "AI Evaluation Against Deception and Reward Hacking",
+    "Human Oversight of Autonomous Cybersecurity Decisions",
+    "AI Audit Trails, Provenance, and Evidence-Based Reporting",
+    "Responsible Disclosure of AI Vulnerabilities",
+    "AI Security Assurance and Continuous Risk Assessment",
+
+    # 8. Advanced Machine Learning Research
+    "Transformer Architecture Optimization and Efficient Attention",
+    "Mixture-of-Experts Models and Sparse Intelligence",
+    "Small Language Models for On-Premises Cybersecurity",
+    "Multimodal Foundation Models for Security Analytics",
+    "Reinforcement Learning for Tool-Using AI Agents",
+    "Synthetic Data Generation for Security Model Training",
+    "Self-Supervised Learning for Unknown Threat Detection",
+    "Continual Learning Under Adversarial Distribution Shifts",
+    "Parameter-Efficient Fine-Tuning for Cybersecurity Models",
+    "Retrieval-Augmented Generation Versus Fine-Tuning",
+    "Model Quantization and Efficient AI Inference",
+    "AI Benchmark Contamination and Evaluation Integrity",
+    "Reasoning Models: Reliability, Verification, and Limitations",
+    "Causal Representation Learning for Cybersecurity",
+    "Neural-Symbolic Systems for Verifiable AI Decisions",
+
+    # 9. Emerging and Experimental Technologies
+    "Quantum Machine Learning for Cybersecurity Research",
+    "Post-Quantum Cryptography and AI Security",
+    "AI for Space Cybersecurity and Satellite Threat Detection",
+    "AI-Driven RF Signal Analysis and Spectrum Anomaly Detection",
+    "Privacy-Preserving AI Using Secure Enclaves",
+    "Homomorphic Encryption for Confidential AI Inference",
+    "Decentralized AI Networks and Federated Agent Systems",
+    "Digital Twins for Cybersecurity Simulation",
+    "AI-Based Robotics and Autonomous System Security",
+    "Neuromorphic Computing for Energy-Efficient Intelligence",
+    "AI for OT and Industrial Control System Security",
+    "AI Security for Edge Computing and IoT Devices",
+    "Synthetic Media Detection and Deepfake Forensics",
+    "AI-Assisted Software Supply Chain Risk Analysis",
+    "AI Research on Autonomous Scientific Discovery",
+
+    # 10. Practical Research, Experiments, and Benchmarks
+    "Open-Source Agentic AI Security Frameworks",
+    "Benchmarking Multi-Agent Swarm Coordination",
+    "Evaluating AI Agent Reliability Under Adversarial Conditions",
+    "Building a Secure Multi-Agent Cybersecurity Research Lab",
+    "Comparing Single-Agent, Multi-Agent, and Swarm Architectures",
+    "Testing AI Agent Isolation in Docker Containers",
+    "Evaluating AI Agents Against OWASP Top 10 for LLM Applications",
+    "Designing Reproducible AI Security Experiments",
+    "Measuring Swarm Intelligence Efficiency and Coordination Costs",
+    "Evaluating Predictive Threat Detection Accuracy",
+    "AI Cybersecurity Research Using OpenCTI and MITRE ATT&CK",
+    "Building an AI-Assisted SOC with Wazuh and OpenCTI",
+    "Secure Automation of CodeQL and SAST Analysis",
+    "AI-Assisted API Security Testing in Authorized Environments",
+    "Developing a Cybersecurity and AI Trust Engine",
 ]
 
 HASHTAG_SETS = {
-    "Prompt Injection": "#PromptInjection #AIAgents #LLMSecurity #AgenticAI #Cybersecurity #AIAttacks #PromptHacking #ZeroTrust #AISecurity #MLOps #DevSecOps #CloudSecurity #AIResearch #ThreatDetection #InfoSec",
-    "Zero Trust":       "#ZeroTrust #ZeroTrustSecurity #IAM #AgenticAI #Cybersecurity #CloudSecurity #NetworkSecurity #AISecurity #DevSecOps #MLOps #ZeroTrustArchitecture #IdentitySecurity #InfoSec #AIResearch #SecurityArchitecture",
-    "default":          "#AgenticAI #Cybersecurity #AISecurity #LLMOps #AIOps #MLOps #AIAgents #ZeroTrust #ThreatDetection #DevSecOps #CloudSecurity #InfoSec #AIResearch #MachineLearning #SecurityOps",
+    # 1. ASI, AGI and Advanced Intelligence
+    "ASI Research": (
+        "#ASI #ArtificialSuperintelligence #AGI #AdvancedAI "
+        "#AIResearch #CognitiveArchitecture #MachineIntelligence "
+        "#AdaptiveIntelligence #AISafety #AIAlignment "
+        "#ReasoningModels #FutureOfAI #NeuralNetworks "
+        "#AIInnovation #IntelligentSystems"
+    ),
+
+    "AGI Research": (
+        "#AGI #ArtificialGeneralIntelligence #GeneralAI "
+        "#AIResearch #MachineLearning #DeepLearning "
+        "#CognitiveAI #AIReasoning #WorldModels "
+        "#ContinualLearning #AIArchitecture #AISafety "
+        "#IntelligentAgents #FutureOfAI #NeuroSymbolicAI"
+    ),
+
+    "Self-Improving AI": (
+        "#SelfImprovingAI #RecursiveSelfImprovement "
+        "#AISafety #AIAlignment #ASI #AGI "
+        "#AIResearch #AdaptiveAI #MetaLearning "
+        "#AIReasoning #ModelEvaluation #ResponsibleAI "
+        "#AIControl #MachineIntelligence #AdvancedAI"
+    ),
+
+    # 2. AI Swarms and Multi-Agent Intelligence
+    "AI Swarm Intelligence": (
+        "#AISwarm #SwarmIntelligence #SwarmAI "
+        "#MultiAgentSystems #MultiAgentAI #AgenticAI "
+        "#CollectiveIntelligence #DistributedAI "
+        "#AutonomousAgents #AIResearch #AIAgents "
+        "#CollaborativeAI #EmergentBehavior "
+        "#DecentralizedAI #IntelligentSystems"
+    ),
+
+    "Multi-Agent Systems": (
+        "#MultiAgentSystems #MultiAgentAI #AIAgents "
+        "#AgenticAI #AgentOrchestration #SwarmAI "
+        "#DistributedIntelligence #AgentCoordination "
+        "#MultiAgentLearning #CrewAI #LangGraph "
+        "#AutonomousAgents #AIResearch #LLMOps #AISecurity"
+    ),
+
+    "Swarm Cybersecurity": (
+        "#AISwarm #SwarmIntelligence #Cybersecurity "
+        "#AutonomousCyberDefense #AgenticAI #AISecurity "
+        "#ThreatHunting #ThreatIntelligence #MultiAgentAI "
+        "#SOC #BlueTeam #CyberDefense #AIAgents "
+        "#PredictiveSecurity #SecurityAutomation"
+    ),
+
+    "Multi-Agent Security": (
+        "#MultiAgentSecurity #MultiAgentSystems #AISecurity "
+        "#AgenticAI #AIAgents #LLMSecurity "
+        "#AgentSecurity #PromptInjection #ZeroTrust "
+        "#AIThreatModeling #SecureAI #Cybersecurity "
+        "#AIResearch #RuntimeSecurity #AITrust"
+    ),
+
+    # 3. Agentic AI and Autonomous Research
+    "Agentic AI": (
+        "#AgenticAI #AIAgents #AutonomousAgents "
+        "#AIResearch #LLMOps #AIWorkflows "
+        "#AgentOrchestration #MultiAgentSystems "
+        "#ToolCalling #RAG #AIEngineering "
+        "#MachineLearning #IntelligentAutomation "
+        "#AIInnovation #AISecurity"
+    ),
+
+    "Autonomous AI Research": (
+        "#AutonomousResearch #ResearchAgents #AgenticAI "
+        "#AIAgents #AIResearch #MultiAgentAI "
+        "#ScientificDiscovery #AIReasoning "
+        "#KnowledgeGraphs #RAG #LLMOps "
+        "#AutomatedResearch #AIEngineering "
+        "#IntelligentSystems #FutureOfAI"
+    ),
+
+    "AI Memory and Reasoning": (
+        "#AIMemory #AIReasoning #AgenticAI "
+        "#LongTermMemory #CognitiveArchitecture "
+        "#KnowledgeGraphs #RAG #LLMResearch "
+        "#Metacognition #WorldModels #AIPlanning "
+        "#ContinualLearning #MultiAgentAI "
+        "#AIResearch #AdvancedAI"
+    ),
+
+    # 4. AI Security and Adversarial Research
+    "Prompt Injection": (
+        "#PromptInjection #IndirectPromptInjection "
+        "#AIAgents #LLMSecurity #AgenticAI "
+        "#Cybersecurity #AISecurity #AIAttacks "
+        "#PromptHacking #ZeroTrust #AIThreatModeling "
+        "#AIResearch #ThreatDetection #DevSecOps "
+        "#ResponsibleAI"
+    ),
+
+    "Zero Trust": (
+        "#ZeroTrust #ZeroTrustSecurity #IAM "
+        "#IdentitySecurity #AgenticAI #Cybersecurity "
+        "#CloudSecurity #NetworkSecurity #AISecurity "
+        "#DevSecOps #MLOps #ZeroTrustArchitecture "
+        "#AIResearch #SecurityArchitecture #LeastPrivilege"
+    ),
+
+    "LLM Security": (
+        "#LLMSecurity #LLM #GenAI #AISecurity "
+        "#Jailbreaking #PromptInjection #RAGSecurity "
+        "#AIThreats #AITrust #SecureAI "
+        "#AIRedTeaming #OWASP #Cybersecurity "
+        "#AIResearch #ResponsibleAI"
+    ),
+
+    "AI Supply Chain": (
+        "#AISupplyChain #AIModelSecurity #MLOpsSecurity "
+        "#SoftwareSupplyChain #ModelPoisoning "
+        "#DataSecurity #AISecurity #DevSecOps "
+        "#MLSecurity #ModelIntegrity #Cybersecurity "
+        "#AIResearch #SecureMLOps #CloudSecurity "
+        "#RiskManagement"
+    ),
+
+    "Adversarial Machine Learning": (
+        "#AdversarialML #MachineLearningSecurity "
+        "#AdversarialAI #ModelPoisoning #AISecurity "
+        "#AIResearch #DeepLearning #ModelRobustness "
+        "#DataIntegrity #AIThreats #MLSecurity "
+        "#SecureAI #ResponsibleAI #Cybersecurity "
+        "#RobustAI"
+    ),
+
+    "AI Red Teaming": (
+        "#AIRedTeaming #LLMSecurity #AISecurity "
+        "#AgenticAI #AIAgents #PromptInjection "
+        "#AdversarialAI #AIThreatModeling "
+        "#OWASP #MITREATTACK #Cybersecurity "
+        "#AIResearch #SecurityTesting "
+        "#ResponsibleAI #AITrust"
+    ),
+
+    "AI Agent Security": (
+        "#AIAgentSecurity #AgenticAI #AISecurity "
+        "#AgentIdentity #LeastPrivilege #ZeroTrust "
+        "#SecureAI #ToolSecurity #Sandboxing "
+        "#PromptInjection #MultiAgentSystems "
+        "#RuntimeSecurity #LLMSecurity "
+        "#Cybersecurity #AITrust"
+    ),
+
+    # 5. Autonomous Cyber Defense and SOC
+    "Autonomous Cyber Defense": (
+        "#AutonomousCyberDefense #AgenticAI "
+        "#AISecurity #Cybersecurity #AIAgents "
+        "#ThreatHunting #ThreatIntelligence "
+        "#SecurityAutomation #SOC #SIEM "
+        "#IncidentResponse #BlueTeam "
+        "#PredictiveSecurity #CyberDefense "
+        "#AIResearch"
+    ),
+
+    "AI SOC Operations": (
+        "#AISOC #SOC #AgenticAI #AIOps "
+        "#Cybersecurity #SecurityOperations "
+        "#SIEM #SOAR #Wazuh #ThreatHunting "
+        "#IncidentResponse #ThreatIntelligence "
+        "#SecurityAutomation #AISecurity #AIResearch"
+    ),
+
+    "AI Threat Intelligence": (
+        "#ThreatIntelligence #CyberThreatIntelligence "
+        "#AIThreatIntelligence #AgenticAI "
+        "#AISecurity #OpenCTI #MITREATTACK "
+        "#ThreatHunting #PredictiveAnalytics "
+        "#Cybersecurity #OSINT #SOC "
+        "#ThreatDetection #AIResearch "
+        "#ExternalThreatIntelligence"
+    ),
+
+    "AI Vulnerability Assessment": (
+        "#AIVulnerabilityAssessment #VAPT #AppSec "
+        "#Cybersecurity #AISecurity #AgenticAI "
+        "#DAST #SAST #CodeQL #OWASP "
+        "#APISecurity #DevSecOps #SecureCoding "
+        "#VulnerabilityManagement #AIResearch"
+    ),
+
+    "AI Incident Response": (
+        "#IncidentResponse #AutonomousResponse "
+        "#AgenticAI #AISecurity #SOC #SOAR "
+        "#ThreatHunting #DigitalForensics "
+        "#CyberDefense #SecurityAutomation "
+        "#ThreatIntelligence #Wazuh "
+        "#Cybersecurity #AIResearch #BlueTeam"
+    ),
+
+    # 6. Predictive Intelligence and Threat Analytics
+    "Predictive Intelligence": (
+        "#PredictiveIntelligence #PredictiveAI "
+        "#ThreatPrediction #CyberThreatIntelligence "
+        "#MachineLearning #GraphNeuralNetworks "
+        "#KnowledgeGraphs #CausalAI #AgenticAI "
+        "#Cybersecurity #AnomalyDetection "
+        "#ThreatAnalytics #AIResearch "
+        "#RiskPrediction #AISecurity"
+    ),
+
+    "AI Threat Detection": (
+        "#ThreatDetection #AIThreatDetection "
+        "#AnomalyDetection #MachineLearning "
+        "#DeepLearning #Cybersecurity #AISecurity "
+        "#ThreatHunting #SIEM #SOC "
+        "#PredictiveSecurity #BehavioralAnalytics "
+        "#ThreatIntelligence #AIResearch #EDR"
+    ),
+
+    "Graph AI and Cybersecurity": (
+        "#GraphAI #GraphNeuralNetworks #KnowledgeGraphs "
+        "#Cybersecurity #ThreatIntelligence "
+        "#AttackGraph #ThreatDetection #CausalAI "
+        "#PredictiveAnalytics #MachineLearning "
+        "#AgenticAI #AISecurity #AIResearch "
+        "#AttackPathAnalysis #DataScience"
+    ),
+
+    # 7. AI Trust, Safety, Governance and Alignment
+    "AI Trust and Safety": (
+        "#AITrust #AISafety #AIAlignment "
+        "#ResponsibleAI #AIControl #AIGovernance "
+        "#AITransparency #AIAccountability "
+        "#AIResearch #AgenticAI #AISecurity "
+        "#HumanInTheLoop #TrustworthyAI "
+        "#RiskManagement #FutureOfAI"
+    ),
+
+    "AI Governance": (
+        "#AIGovernance #ResponsibleAI #AISafety "
+        "#AICompliance #ISO42001 #NISTAIRMF "
+        "#AITrust #AIAccountability #AITransparency "
+        "#Cybersecurity #AIResearch #RiskManagement "
+        "#AIRegulation #SecureAI #DataGovernance"
+    ),
+
+    "AI Alignment and Control": (
+        "#AIAlignment #AIControl #AISafety "
+        "#ScalableOversight #AdvancedAI #ASI "
+        "#AGI #ResponsibleAI #AIResearch "
+        "#MechanisticInterpretability #AITrust "
+        "#HumanOversight #ModelEvaluation "
+        "#AIAlignmentResearch #TrustworthyAI"
+    ),
+
+    "Explainable AI": (
+        "#ExplainableAI #XAI #ResponsibleAI "
+        "#AITransparency #InterpretableAI "
+        "#MachineLearning #AISafety #AITrust "
+        "#Cybersecurity #ThreatDetection "
+        "#AIResearch #ModelExplainability "
+        "#TrustworthyAI #DataScience #AI Ethics"
+    ).replace("#AI Ethics", "#AIEthics"),
+
+    # 8. Advanced Machine Learning Research
+    "Advanced AI Research": (
+        "#AIResearch #DeepLearning #MachineLearning "
+        "#FoundationModels #ReasoningModels "
+        "#NeuroSymbolicAI #WorldModels #MixtureOfExperts "
+        "#ContinualLearning #MultimodalAI "
+        "#AIInnovation #AdvancedAI #AGI "
+        "#IntelligentSystems #FutureOfAI"
+    ),
+
+    "Generative AI Security": (
+        "#GenerativeAI #GenAI #LLMSecurity "
+        "#AIGeneratedContent #AISecurity "
+        "#PromptInjection #AIThreats #RAGSecurity "
+        "#AITrust #ResponsibleAI #Cybersecurity "
+        "#AIResearch #ModelSecurity "
+        "#FoundationModels #AIEngineering"
+    ),
+
+    "Reinforcement Learning": (
+        "#ReinforcementLearning #MultiAgentRL "
+        "#RL #MachineLearning #DeepLearning "
+        "#AIResearch #SwarmIntelligence "
+        "#AgenticAI #AutonomousAgents "
+        "#DecisionMaking #AdaptiveAI "
+        "#AIReasoning #AdvancedAI "
+        "#IntelligentSystems #AIInnovation"
+    ),
+
+    # 9. Emerging and Experimental Technologies
+    "Quantum AI": (
+        "#QuantumAI #QuantumComputing "
+        "#QuantumMachineLearning #PostQuantumCryptography "
+        "#Cybersecurity #AISecurity #AIResearch "
+        "#QuantumSecurity #MachineLearning "
+        "#AdvancedComputing #Cryptography "
+        "#FutureOfAI #SecureAI #EmergingTechnology "
+        "#ResearchInnovation"
+    ),
+
+    "Space Cybersecurity": (
+        "#SpaceCybersecurity #SpaceSecurity "
+        "#SatelliteSecurity #AerospaceCybersecurity "
+        "#AIResearch #AgenticAI #AISecurity "
+        "#ThreatIntelligence #SpaceTechnology "
+        "#CyberDefense #SatelliteCommunications "
+        "#CriticalInfrastructure #AIInnovation "
+        "#PredictiveSecurity #FutureOfSpace"
+    ),
+
+    "OT and IoT Security": (
+        "#OTSecurity #IoTSecurity #ICSecurity "
+        "#IndustrialCybersecurity #AIThreatDetection "
+        "#Cybersecurity #AISecurity #AgenticAI "
+        "#CriticalInfrastructure #ThreatHunting "
+        "#ZeroTrust #EdgeAI #AIResearch "
+        "#PredictiveMaintenance #SecureAI"
+    ),
+
+    # 10. Practical AI Engineering and Experiments
+    "AI Research Experiments": (
+        "#AIResearch #AIExperiments #OpenSourceAI "
+        "#MachineLearning #DeepLearning "
+        "#AgenticAI #MultiAgentSystems #SwarmAI "
+        "#Benchmarking #ModelEvaluation "
+        "#ReproducibleResearch #AIEngineering "
+        "#DataScience #AdvancedAI #Innovation"
+    ),
+
+    "Docker AI Security": (
+        "#Docker #ContainerSecurity #AISecurity "
+        "#AgenticAI #AIAgents #DevSecOps "
+        "#CloudNativeSecurity #Cybersecurity "
+        "#Sandboxing #RuntimeSecurity "
+        "#ZeroTrust #AIResearch #SecureAI "
+        "#Containerization #SecurityAutomation"
+    ),
+
+    "AI Cybersecurity Trust Engine": (
+        "#AITrustEngine #AISecurity #Cybersecurity "
+        "#AgenticAI #AISafety #AITrust "
+        "#AIAlignment #AutonomousCyberDefense "
+        "#MultiAgentSystems #PredictiveSecurity "
+        "#ThreatIntelligence #AIResearch "
+        "#ResponsibleAI #SecurityAutomation "
+        "#TrustworthyAI"
+    ),
+
+    # 11. Default fallback
+    "default": (
+        "#AgenticAI #AISecurity #AIResearch "
+        "#Cybersecurity #AIAgents #MultiAgentSystems "
+        "#SwarmIntelligence #ASI #AGI "
+        "#PredictiveIntelligence #AISafety "
+        "#AITrust #ThreatIntelligence #DevSecOps "
+        "#FutureOfAI"
+    ),
 }
 
 # ── PDF Colors ────────────────────────────────────────────────────────────────
